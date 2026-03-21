@@ -1,0 +1,44 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36908.2
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderCloud.Android", "OrderCloud.Android\OrderCloud.Android.csproj", "{21B09D20-9B7B-BF80-F182-3CAF3A5A5A7C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderCloud.API", "OrderCloud.API\OrderCloud.API.csproj", "{FE0DBF49-7E91-3A3D-398A-FA8C79389E6A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderCloud.Shared", "OrderCloud.Shared\OrderCloud.Shared.csproj", "{B57656E4-8BE0-917B-44EF-7D8B97145553}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderCloud.Blazor", "OrderCloud.Blazor\OrderCloud.Blazor.csproj", "{312C1B38-4F9E-4D7F-8ED7-E2C3EE1E8539}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{21B09D20-9B7B-BF80-F182-3CAF3A5A5A7C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21B09D20-9B7B-BF80-F182-3CAF3A5A5A7C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{21B09D20-9B7B-BF80-F182-3CAF3A5A5A7C}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{21B09D20-9B7B-BF80-F182-3CAF3A5A5A7C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{21B09D20-9B7B-BF80-F182-3CAF3A5A5A7C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FE0DBF49-7E91-3A3D-398A-FA8C79389E6A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE0DBF49-7E91-3A3D-398A-FA8C79389E6A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE0DBF49-7E91-3A3D-398A-FA8C79389E6A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE0DBF49-7E91-3A3D-398A-FA8C79389E6A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B57656E4-8BE0-917B-44EF-7D8B97145553}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B57656E4-8BE0-917B-44EF-7D8B97145553}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B57656E4-8BE0-917B-44EF-7D8B97145553}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B57656E4-8BE0-917B-44EF-7D8B97145553}.Release|Any CPU.Build.0 = Release|Any CPU
+		{312C1B38-4F9E-4D7F-8ED7-E2C3EE1E8539}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{312C1B38-4F9E-4D7F-8ED7-E2C3EE1E8539}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{312C1B38-4F9E-4D7F-8ED7-E2C3EE1E8539}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{312C1B38-4F9E-4D7F-8ED7-E2C3EE1E8539}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DC98941A-7FF8-4FC1-9412-0DA1B538066D}
+	EndGlobalSection
+EndGlobal
