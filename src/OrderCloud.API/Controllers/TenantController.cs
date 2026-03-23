@@ -1,4 +1,6 @@
 ﻿using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using OrderCloud.Blazor.Models;
 
@@ -40,6 +42,10 @@ namespace OrderCloud.API.Controllers
 
             if (tenant.Id == Guid.Empty) tenant.Id = Guid.NewGuid();
 
+            // Генерируем ApiKey/ApiSecret, если их нет
+            tenant.ApiKey ??= GenerateUniqueKey();
+            tenant.ApiSecret ??= GenerateSecret();
+
             // Простая гарантия уникальности
             if (!Store.TryAdd(tenant.Id, tenant))
             {
@@ -71,6 +77,32 @@ namespace OrderCloud.API.Controllers
             if (!Store.TryRemove(id, out _)) return NotFound();
 
             return NoContent();
+        }
+
+        // Генерирует короткий API ключ (base64url) и обеспечивает уникальность по хранилищу.
+        private static string GenerateUniqueKey(int bytes = 32)
+        {
+            string key;
+            do
+            {
+                key = GenerateBase64Url(bytes);
+            } while (Store.Values.Any(t => string.Equals(t.ApiKey, key, StringComparison.Ordinal)));
+            return key;
+        }
+
+        // Генерирует секрет (длиннее, base64url)
+        private static string GenerateSecret(int bytes = 32)
+        {
+            return GenerateBase64Url(bytes);
+        }
+
+        private static string GenerateBase64Url(int bytes)
+        {
+            Span<byte> buffer = stackalloc byte[bytes];
+            RandomNumberGenerator.Fill(buffer);
+            // Base64 URL-safe without padding
+            var base64 = Convert.ToBase64String(buffer);
+            return base64.Replace('+', '-').Replace('/', '_').TrimEnd('=');
         }
     }
 }

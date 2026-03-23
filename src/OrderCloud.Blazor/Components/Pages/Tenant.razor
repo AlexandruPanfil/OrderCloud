@@ -2,59 +2,85 @@
 @using OrderCloud.Blazor.Models
 @inject OrderCloud.Blazor.Services.ITenantService TenantService
 @inject IJSRuntime JS
+@rendermode InteractiveServer
 
 <h3>Tenants</h3>
 
 <div class="mb-3 d-flex gap-2">
     <input class="form-control" placeholder="Search by name..." @bind="searchTerm" @bind:event="oninput" />
-    <button type="button" class="btn btn-primary" @onclick="ToggleCreate">
-        @(showCreate ? "Cancel" : "New Tenant")
+    <button type="button" class="btn btn-primary" @onclick="StartCreate">
+        New Tenant
     </button>
     <button type="button" class="btn btn-secondary" @onclick="LoadTenantsAsync">Refresh</button>
 </div>
 
-@if (showCreate)
+@if (ShouldShowForm)
 {
-    <div class="card mb-3">
+    <div class="card mb-3 z-1">
         <div class="card-body">
-            <h5 class="card-title">Create Tenant</h5>
-            <div class="mb-2">
-                <label class="form-label">Name</label>
-                <input class="form-control" @bind="newTenant.Name" />
-            </div>
-            <div class="mb-2">
-                <label class="form-label">ApiKey</label>
-                <input class="form-control" @bind="newTenant.ApiKey" />
-            </div>
-            <div class="mb-2">
-                <label class="form-label">ApiSecret</label>
-                <input class="form-control" @bind="newTenant.ApiSecret" />
-            </div>
-            <div class="d-flex gap-2">
-                <button type="button" class="btn btn-success" @onclick="CreateAsync">Create</button>
-                <button type="button" class="btn btn-outline-secondary" @onclick="CancelCreate">Clear</button>
-            </div>
-            @if (!string.IsNullOrEmpty(createError))
-            {
-                <div class="text-danger mt-2">@createError</div>
-            }
+            <h5 class="card-title">@FormTitle</h5>
+
+            <EditForm Model="formTenant" OnValidSubmit="HandleSubmitAsync">
+                <div class="mb-2">
+                    <label class="form-label">Name</label>
+                    <input class="form-control" @bind="formTenant.Name" disabled="@IsViewMode" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(formTenant.ApiKey))
+                {
+                    <div class="mb-2">
+                        <label class="form-label">ApiKey</label>
+                        <div class="input-group">
+                            <input class="form-control" value="@formTenant.ApiKey" readonly />
+                            <button type="button" class="btn btn-outline-secondary" @onclick="() => CopyToClipboardAsync(formTenant.ApiKey)">Copy</button>
+                        </div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(formTenant.ApiSecret))
+                {
+                    <div class="mb-2">
+                        <label class="form-label">ApiSecret</label>
+                        <div class="input-group">
+                            <input class="form-control" value="@formTenant.ApiSecret" readonly />
+                            <button type="button" class="btn btn-outline-secondary" @onclick="() => CopyToClipboardAsync(formTenant.ApiSecret)">Copy</button>
+                        </div>
+                    </div>
+                }
+
+                <div class="d-flex gap-2">
+                    @if (!IsViewMode)
+                    {
+                        <button type="submit" class="btn btn-success">Create</button>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CancelForm">Clear</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CancelForm">Close</button>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(formError))
+                {
+                    <div class="text-danger mt-2">@formError</div>
+                }
+            </EditForm>
         </div>
     </div>
 }
 
 @if (isLoading)
 {
-    <div>Loading...</div>
+    <div class="alert alert-info">Loading...</div>
 }
-else
+else if (tenants.Any())
 {
     <table class="table table-striped">
         <thead>
             <tr>
                 <th>Name</th>
                 <th>ApiKey</th>
-                <th>ApiSecret</th>
-                <th style="width:180px">Actions</th>
+                <th style="width:200px">Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -62,34 +88,36 @@ else
             {
                 <tr>
                     <td>@t.Name</td>
-                    <td>@t.ApiKey</td>
-                    <td>@t.ApiSecret</td>
+                    <td><code>@t.ApiKey</code></td>
                     <td>
+                        <button type="button" class="btn btn-info btn-sm me-1" @onclick="() => ViewTenant(t)">View</button>
                         <button type="button" class="btn btn-danger btn-sm" @onclick="() => DeleteAsync(t.Id, t.Name)">Delete</button>
                     </td>
                 </tr>
             }
         </tbody>
     </table>
-
-    @if (!FilteredTenants.Any())
-    {
-        <div class="text-muted">No tenants found.</div>
-    }
+}
+else
+{
+    <div class="alert alert-info">No tenants found.</div>
 }
 
 @code {
     private List<TenantDTO> tenants = new();
     private string searchTerm = string.Empty;
-    private bool showCreate = false;
-    private TenantDTO newTenant = new() { Id = Guid.Empty, Name = string.Empty, ApiKey = string.Empty, ApiSecret = string.Empty };
+    private TenantDTO formTenant = new();
     private bool isLoading = false;
-    private string? createError;
+    private string? formError;
+    private bool IsViewMode { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
         await LoadTenantsAsync();
     }
+
+    private bool ShouldShowForm => !string.IsNullOrEmpty(formTenant.Name) || !string.IsNullOrEmpty(formTenant.ApiKey);
+    private string FormTitle => IsViewMode ? "View Tenant" : "Create Tenant";
 
     private IEnumerable<TenantDTO> FilteredTenants =>
         tenants.Where(t => string.IsNullOrWhiteSpace(searchTerm) ||
@@ -109,31 +137,60 @@ else
         }
     }
 
-    private void CancelCreate()
+    private void StartCreate()
     {
-        newTenant = new() { Id = Guid.Empty, Name = string.Empty, ApiKey = string.Empty, ApiSecret = string.Empty };
-        createError = null;
-        showCreate = false;
+        formTenant = new() { Id = Guid.Empty, Name = string.Empty, ApiKey = string.Empty, ApiSecret = string.Empty };
+        formError = null;
+        IsViewMode = false;
     }
 
-    private async Task CreateAsync()
+    private void ViewTenant(TenantDTO tenant)
     {
-        createError = null;
-        if (string.IsNullOrWhiteSpace(newTenant.Name))
+        formTenant = new TenantDTO
         {
-            createError = "Name is required.";
+            Id = tenant.Id,
+            Name = tenant.Name,
+            ApiKey = tenant.ApiKey,
+            ApiSecret = tenant.ApiSecret
+        };
+        formError = null;
+        IsViewMode = true;
+    }
+
+    private void CancelForm()
+    {
+        formTenant = new();
+        formError = null;
+        IsViewMode = false;
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        formError = null;
+        if (string.IsNullOrWhiteSpace(formTenant.Name))
+        {
+            formError = "Name is required.";
             return;
         }
 
         try
         {
-            var created = await TenantService.CreateAsync(newTenant);
+            var toCreate = new TenantDTO 
+            { 
+                Id = Guid.Empty, 
+                Name = formTenant.Name, 
+                ApiKey = string.Empty, 
+                ApiSecret = string.Empty 
+            };
+            var created = await TenantService.CreateAsync(toCreate);
             tenants.Add(created);
-            CancelCreate();
+            formTenant = created;
+            IsViewMode = true;
+            StateHasChanged();
         }
         catch (Exception ex)
         {
-            createError = ex.Message;
+            formError = ex.Message;
         }
     }
 
@@ -146,6 +203,10 @@ else
         {
             await TenantService.DeleteAsync(id);
             tenants.RemoveAll(t => t.Id == id);
+            if (formTenant.Id == id)
+            {
+                CancelForm();
+            }
             StateHasChanged();
         }
         catch (Exception ex)
@@ -154,8 +215,16 @@ else
         }
     }
 
-    private void ToggleCreate()
+    private async Task CopyToClipboardAsync(string? text)
     {
-        showCreate = !showCreate;
+        if (string.IsNullOrEmpty(text)) return;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+        catch
+        {
+            // ignore clipboard errors
+        }
     }
 }
