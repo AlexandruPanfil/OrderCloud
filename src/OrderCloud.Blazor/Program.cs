@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using OrderCloud.Blazor.Components;
 using OrderCloud.Blazor.Components.Account;
 using OrderCloud.Blazor.Data;
+using OrderCloud.Blazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +16,19 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityUserAccessor>();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
+
+// Register TenantService implementation and provide HttpClient for API calls.
+// ApiBase can be set in appsettings.json as "ApiBase". Fallback to localhost.
+var apiBase = builder.Configuration.GetValue<string>("ApiBase");
+if (string.IsNullOrWhiteSpace(apiBase))
+{
+    apiBase = "https://localhost:7173/"; // <-- заменить на фактический URL вашего API при необходимости
+}
+
+builder.Services.AddHttpClient<ITenantService, TenantService>(client =>
+{
+    client.BaseAddress = new Uri(apiBase);
+});
 
 builder.Services.AddAuthentication(options =>
     {

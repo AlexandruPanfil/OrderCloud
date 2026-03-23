@@ -7,7 +7,7 @@ namespace OrderCloud.Blazor.Data
     public class ApplicationUser : IdentityUser
     {
         //Link to multiple Tenants
-        public List<Tenant>? Tenants { get; set; }
+        public List<TenantDTO>? Tenants { get; set; }
     }
 
 }

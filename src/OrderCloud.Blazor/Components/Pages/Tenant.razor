@@ -1,0 +1,161 @@
+﻿@page "/tenants"
+@using OrderCloud.Blazor.Models
+@inject OrderCloud.Blazor.Services.ITenantService TenantService
+@inject IJSRuntime JS
+
+<h3>Tenants</h3>
+
+<div class="mb-3 d-flex gap-2">
+    <input class="form-control" placeholder="Search by name..." @bind="searchTerm" @bind:event="oninput" />
+    <button type="button" class="btn btn-primary" @onclick="ToggleCreate">
+        @(showCreate ? "Cancel" : "New Tenant")
+    </button>
+    <button type="button" class="btn btn-secondary" @onclick="LoadTenantsAsync">Refresh</button>
+</div>
+
+@if (showCreate)
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">Create Tenant</h5>
+            <div class="mb-2">
+                <label class="form-label">Name</label>
+                <input class="form-control" @bind="newTenant.Name" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">ApiKey</label>
+                <input class="form-control" @bind="newTenant.ApiKey" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label">ApiSecret</label>
+                <input class="form-control" @bind="newTenant.ApiSecret" />
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-success" @onclick="CreateAsync">Create</button>
+                <button type="button" class="btn btn-outline-secondary" @onclick="CancelCreate">Clear</button>
+            </div>
+            @if (!string.IsNullOrEmpty(createError))
+            {
+                <div class="text-danger mt-2">@createError</div>
+            }
+        </div>
+    </div>
+}
+
+@if (isLoading)
+{
+    <div>Loading...</div>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>ApiKey</th>
+                <th>ApiSecret</th>
+                <th style="width:180px">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var t in FilteredTenants)
+            {
+                <tr>
+                    <td>@t.Name</td>
+                    <td>@t.ApiKey</td>
+                    <td>@t.ApiSecret</td>
+                    <td>
+                        <button type="button" class="btn btn-danger btn-sm" @onclick="() => DeleteAsync(t.Id, t.Name)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!FilteredTenants.Any())
+    {
+        <div class="text-muted">No tenants found.</div>
+    }
+}
+
+@code {
+    private List<TenantDTO> tenants = new();
+    private string searchTerm = string.Empty;
+    private bool showCreate = false;
+    private TenantDTO newTenant = new() { Id = Guid.Empty, Name = string.Empty, ApiKey = string.Empty, ApiSecret = string.Empty };
+    private bool isLoading = false;
+    private string? createError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTenantsAsync();
+    }
+
+    private IEnumerable<TenantDTO> FilteredTenants =>
+        tenants.Where(t => string.IsNullOrWhiteSpace(searchTerm) ||
+            (t.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    private async Task LoadTenantsAsync()
+    {
+        isLoading = true;
+        try
+        {
+            tenants = await TenantService.GetAllAsync();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelCreate()
+    {
+        newTenant = new() { Id = Guid.Empty, Name = string.Empty, ApiKey = string.Empty, ApiSecret = string.Empty };
+        createError = null;
+        showCreate = false;
+    }
+
+    private async Task CreateAsync()
+    {
+        createError = null;
+        if (string.IsNullOrWhiteSpace(newTenant.Name))
+        {
+            createError = "Name is required.";
+            return;
+        }
+
+        try
+        {
+            var created = await TenantService.CreateAsync(newTenant);
+            tenants.Add(created);
+            CancelCreate();
+        }
+        catch (Exception ex)
+        {
+            createError = ex.Message;
+        }
+    }
+
+    private async Task DeleteAsync(Guid id, string? name)
+    {
+        var confirm = await JS.InvokeAsync<bool>("confirm", $"Delete tenant '{name}'?");
+        if (!confirm) return;
+
+        try
+        {
+            await TenantService.DeleteAsync(id);
+            tenants.RemoveAll(t => t.Id == id);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Delete failed: {ex.Message}");
+        }
+    }
+
+    private void ToggleCreate()
+    {
+        showCreate = !showCreate;
+    }
+}

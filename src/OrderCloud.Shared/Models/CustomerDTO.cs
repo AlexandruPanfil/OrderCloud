@@ -1,6 +1,6 @@
 ﻿namespace OrderCloud.Blazor.Models
 {
-    public class Customer
+    public class CustomerDTO
     {
         public Guid Id { get; set; }
         public Guid Name { get; set; }
