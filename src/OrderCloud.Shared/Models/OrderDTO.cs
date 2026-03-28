@@ -13,6 +13,9 @@
         //Link to Local User
         public Guid? LocalUserId { get; set; }
         public LocalUserDTO? LocalUser { get; set; }
+        //Link to Customer
+        public Guid CustomerId { get; set; }
+        public CustomerDTO Customer { get; set; }
         //Link to Items
         public List<ItemDTO> Items { get; set; }
     }

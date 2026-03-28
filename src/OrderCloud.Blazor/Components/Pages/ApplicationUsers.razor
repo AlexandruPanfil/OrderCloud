@@ -1,0 +1,207 @@
+@page "/users"
+@using OrderCloud.Blazor.Models
+@using OrderCloud.Blazor.Services
+@inject IApplicationUserService ApplicationUserService
+@inject ITenantService TenantService
+@rendermode InteractiveServer
+
+<PageTitle>Application Users</PageTitle>
+
+<div class="users-page">
+    <div class="page-header">
+        <div class="header-left">
+            <h1 class="page-title">Application Users</h1>
+            <span class="count-badge">@users.Count user@(users.Count == 1 ? "" : "s")</span>
+        </div>
+        <button class="btn-refresh" @onclick="LoadDataAsync" disabled="@isLoading" title="Refresh users and tenants">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z" />
+                <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
+            </svg>
+            Refresh
+        </button>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <span>Loading users and tenants…</span>
+        </div>
+    }
+    else if (!users.Any())
+    {
+        <div class="empty-state">
+            <p>No users found yet. Register or sign in using the Identity pages in the sidebar.</p>
+        </div>
+    }
+    else
+    {
+        <div class="note">
+            Assign one or more tenants to each application user. Changes are saved per user.
+        </div>
+
+        <div class="users-grid">
+            @foreach (var user in users)
+            {
+                <div class="user-card">
+                    <div class="user-card-header">
+                        <div>
+                            <div class="user-name">@user.UserName</div>
+                            <div class="user-email">@user.Email</div>
+                        </div>
+                        <button class="btn-save" disabled="@IsSaving(user.Id)" @onclick="() => SaveAssignmentsAsync(user.Id)">
+                            @if (IsSaving(user.Id))
+                            {
+                                <span class="spinner spinner-sm"></span>
+                                @* <span class="spinner spinner-sm"></span> *@
+                                <span>Saving…</span>
+                            }
+                            else
+                            {
+                                <span>Save</span>
+                            }
+                        </button>
+                    </div>
+
+                    @if (!tenants.Any())
+                    {
+                        <div class="empty-state">
+                            <p>Create tenants first before assigning them to users.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="assignment-grid">
+                            @foreach (var tenant in tenants)
+                            {
+                                var isAssigned = IsAssigned(user.Id, tenant.Id);
+                                <label class="tenant-chip @(isAssigned ? "active" : "")">
+                                    <input type="checkbox"
+                                           checked="@isAssigned"
+                                           @onchange="e => ToggleAssignment(user.Id, tenant.Id, e)" />
+                                    <span>@tenant.Name</span>
+                                </label>
+                            }
+                        </div>
+                    }
+
+                    <div class="card-meta">
+                        <span>@SelectedCount(user.Id) tenant@(SelectedCount(user.Id) == 1 ? "" : "s") assigned</span>
+                        @if (assignmentErrors.TryGetValue(user.Id, out var error) && !string.IsNullOrEmpty(error))
+                        {
+                            <span class="field-error">@error</span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<ApplicationUserAssignmentDTO> users = new();
+    private List<TenantDTO> tenants = new();
+    private readonly Dictionary<string, HashSet<Guid>> selections = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, bool> savingStates = new();
+    private readonly Dictionary<string, string?> assignmentErrors = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        try
+        {
+            tenants = await TenantService.GetAllAsync();
+            users = await ApplicationUserService.GetAllAsync();
+            SyncSelections();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SyncSelections()
+    {
+        selections.Clear();
+        assignmentErrors.Clear();
+        savingStates.Clear();
+
+        foreach (var user in users)
+        {
+            selections[user.Id] = user.TenantIds?.ToHashSet() ?? new();
+        }
+    }
+
+    private bool IsAssigned(string userId, Guid tenantId) =>
+        selections.TryGetValue(userId, out var set) && set.Contains(tenantId);
+
+    private int SelectedCount(string userId) =>
+        selections.TryGetValue(userId, out var set) ? set.Count : 0;
+
+    private void ToggleAssignment(string userId, Guid tenantId, ChangeEventArgs args)
+    {
+        var isChecked = args.Value switch
+        {
+            bool flag => flag,
+            string str when bool.TryParse(str, out var parsed) => parsed,
+            _ => !IsAssigned(userId, tenantId)
+        };
+
+        if (!selections.TryGetValue(userId, out var set))
+        {
+            set = new HashSet<Guid>();
+            selections[userId] = set;
+        }
+
+        if (isChecked)
+        {
+            set.Add(tenantId);
+        }
+        else
+        {
+            set.Remove(tenantId);
+        }
+    }
+
+    private bool IsSaving(string userId) =>
+        savingStates.TryGetValue(userId, out var isSaving) && isSaving;
+
+    private async Task SaveAssignmentsAsync(string userId)
+    {
+        if (!selections.TryGetValue(userId, out var set))
+        {
+            set = new HashSet<Guid>();
+            selections[userId] = set;
+        }
+
+        assignmentErrors[userId] = null;
+        savingStates[userId] = true;
+
+        try
+        {
+            await ApplicationUserService.UpdateTenantsAsync(userId, set.ToList());
+            var user = users.FirstOrDefault(u => u.Id == userId);
+            if (user != null)
+            {
+                user.TenantIds = set.ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            assignmentErrors[userId] = ex.Message;
+        }
+        finally
+        {
+            savingStates[userId] = false;
+            StateHasChanged();
+        }
+    }
+}

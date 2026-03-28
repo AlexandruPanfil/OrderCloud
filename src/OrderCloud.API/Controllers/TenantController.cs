@@ -42,8 +42,12 @@ namespace OrderCloud.API.Controllers
 
             if (tenant.Id == Guid.Empty) tenant.Id = Guid.NewGuid();
 
-            tenant.ApiKey ??= GenerateBase64Url(24);
-            tenant.ApiSecret ??= GenerateBase64Url(48);
+            tenant.ApiKey = string.IsNullOrWhiteSpace(tenant.ApiKey)
+                ? GenerateBase64Url(24)
+                : tenant.ApiKey;
+            tenant.ApiSecret = string.IsNullOrWhiteSpace(tenant.ApiSecret)
+                ? GenerateBase64Url(48)
+                : tenant.ApiSecret;
 
             _db.Tenants.Add(tenant);
             try

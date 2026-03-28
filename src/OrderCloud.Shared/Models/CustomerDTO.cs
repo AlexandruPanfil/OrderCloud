@@ -3,7 +3,7 @@
     public class CustomerDTO
     {
         public Guid Id { get; set; }
-        public Guid Name { get; set; }
-        public Guid IDNO { get; set; }
+        public string Name { get; set; }
+        public decimal IDNO { get; set; }
     }
 }

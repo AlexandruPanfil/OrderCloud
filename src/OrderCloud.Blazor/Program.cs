@@ -30,6 +30,21 @@ builder.Services.AddHttpClient<ITenantService, TenantService>(client =>
     client.BaseAddress = new Uri(apiBase);
 });
 
+builder.Services.AddHttpClient<IOrderService, OrderService>(client =>
+{
+    client.BaseAddress = new Uri(apiBase);
+});
+
+builder.Services.AddHttpClient<IApplicationUserService, ApplicationUserService>(client =>
+{
+    client.BaseAddress = new Uri(apiBase);
+});
+
+builder.Services.AddHttpClient<IDeviceService, DeviceService>(client =>
+{
+    client.BaseAddress = new Uri(apiBase);
+});
+
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultScheme = IdentityConstants.ApplicationScheme;
