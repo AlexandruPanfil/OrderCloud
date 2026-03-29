@@ -1,0 +1,462 @@
+@page "/localusers"
+@using OrderCloud.Blazor.Models
+@using OrderCloud.Blazor.Services
+@inject ILocalUserService LocalUserService
+@inject ITenantService TenantService
+@inject IDeviceService DeviceService
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Local Users</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 mb-0">Local Users</h1>
+            <div class="text-muted">@localUsers.Count record@(localUsers.Count == 1 ? "" : "s")</div>
+        </div>
+
+        <button class="btn btn-primary" @onclick="StartCreate">
+            New Local User
+        </button>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-8">
+            <input class="form-control" placeholder="Search by name, pin, tenant, or device..."
+                   @bind="searchTerm" @bind:event="oninput" />
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-outline-secondary w-100" @onclick="LoadDataAsync" disabled="@isLoading">
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(pageError))
+    {
+        <div class="alert alert-danger">@pageError</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="alert alert-info">Loading local users…</div>
+    }
+
+    @if (showPanel)
+    {
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    @if (panelMode == PanelMode.Create)
+                    {
+                        <strong>Create Local User</strong>
+                    }
+                    else if (panelMode == PanelMode.Edit)
+                    {
+                        <strong>Edit Local User</strong>
+                    }
+                    else
+                    {
+                        <strong>View Local User</strong>
+                    }
+                </div>
+
+                <div class="d-flex gap-2">
+                    @if (panelMode == PanelMode.View)
+                    {
+                        <button class="btn btn-outline-primary btn-sm" @onclick="SwitchToEdit">Edit</button>
+                    }
+
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="ClosePanel">Close</button>
+                </div>
+            </div>
+
+            <div class="card-body">
+                @if (panelMode == PanelMode.View)
+                {
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Name</dt>
+                        <dd class="col-sm-9">@formUser.Name</dd>
+
+                        <dt class="col-sm-3">PIN Code</dt>
+                        <dd class="col-sm-9">••••</dd>
+
+                        <dt class="col-sm-3">Tenant</dt>
+                        <dd class="col-sm-9">@ResolveTenantName(formUser.TenantId)</dd>
+
+                        <dt class="col-sm-3">Device</dt>
+                        <dd class="col-sm-9">@ResolveDeviceName(formUser.DeviceId)</dd>
+
+                        <dt class="col-sm-3">Id</dt>
+                        <dd class="col-sm-9"><code>@formUser.Id</code></dd>
+                    </dl>
+                }
+                else
+                {
+                    <EditForm Model="formUser" OnSubmit="SaveAsync">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Name</label>
+                                <InputText class="form-control" @bind-Value="formUser.Name" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">PIN Code</label>
+                                <InputText class="form-control" type="password" @bind-Value="formUser.PinCode" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Tenant</label>
+                                <select class="form-select" @bind="TenantIdStr">
+                                    <option value="">-- Select tenant --</option>
+                                    @foreach (var tenant in tenants)
+                                    {
+                                        <option value="@tenant.Id">@tenant.Name</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Device</label>
+                                <select class="form-select" @bind="DeviceIdStr" disabled="@(formUser.TenantId == Guid.Empty)">
+                                    <option value="">-- No device --</option>
+                                    @foreach (var device in AvailableDevices)
+                                    {
+                                        <option value="@device.Id">@device.Name</option>
+                                    }
+                                </select>
+                                @if (formUser.TenantId == Guid.Empty)
+                                {
+                                    <div class="form-text">Select a tenant first.</div>
+                                }
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(formError))
+                        {
+                            <div class="alert alert-danger mt-3 mb-0">@formError</div>
+                        }
+
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            @if (panelMode == PanelMode.Edit)
+                            {
+                                <button type="button" class="btn btn-danger" @onclick="() => DeleteAsync(formUser.Id)">
+                                    Delete
+                                </button>
+                            }
+
+                            <button type="button" class="btn btn-secondary" @onclick="ClosePanel">Cancel</button>
+                            <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                @(panelMode == PanelMode.Create ? "Create" : "Save")
+                            </button>
+                        </div>
+                    </EditForm>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-header">
+            All Local Users
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>PIN Code</th>
+                        <th>Tenant</th>
+                        <th>Device</th>
+                        <th style="width: 220px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (FilteredLocalUsers.Any())
+                    {
+                        @foreach (var user in FilteredLocalUsers)
+                        {
+                            <tr>
+                                <td>@user.Name</td>
+                                <td>••••</td>
+                                <td>@ResolveTenantName(user.TenantId)</td>
+                                <td>@ResolveDeviceName(user.DeviceId)</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ViewUser(user)">View</button>
+                                    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(user)">Edit</button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(user.Id)">Delete</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                No local users found.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private enum PanelMode
+    {
+        Create,
+        Edit,
+        View
+    }
+
+    private List<LocalUserDTO> localUsers = new();
+    private List<TenantDTO> tenants = new();
+    private List<DeviceDTO> devices = new();
+
+    private string searchTerm = string.Empty;
+    private bool isLoading = true;
+    private bool isSaving;
+    private bool showPanel;
+    private PanelMode panelMode;
+    private string? pageError;
+    private string? formError;
+    private LocalUserDTO formUser = CreateEmptyUser();
+
+    private string TenantIdStr
+    {
+        get => formUser.TenantId == Guid.Empty ? string.Empty : formUser.TenantId.ToString();
+        set
+        {
+            formUser.TenantId = Guid.TryParse(value, out var tenantId) ? tenantId : Guid.Empty;
+
+            if (formUser.DeviceId.HasValue &&
+                !devices.Any(d => d.Id == formUser.DeviceId.Value && d.TenantId == formUser.TenantId))
+            {
+                formUser.DeviceId = null;
+            }
+        }
+    }
+
+    private string DeviceIdStr
+    {
+        get => formUser.DeviceId?.ToString() ?? string.Empty;
+        set => formUser.DeviceId = Guid.TryParse(value, out var deviceId) ? deviceId : null;
+    }
+
+    private IEnumerable<LocalUserDTO> FilteredLocalUsers => localUsers.Where(user =>
+        string.IsNullOrWhiteSpace(searchTerm) ||
+        user.Id.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+        (user.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+        (user.PinCode?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+        ResolveTenantName(user.TenantId).Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+        ResolveDeviceName(user.DeviceId).Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(user => user.Name);
+
+    private IEnumerable<DeviceDTO> AvailableDevices =>
+        formUser.TenantId == Guid.Empty
+            ? Enumerable.Empty<DeviceDTO>()
+            : devices.Where(device => device.TenantId == formUser.TenantId).OrderBy(device => device.Name);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        pageError = null;
+
+        try
+        {
+            localUsers = await LocalUserService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            localUsers = new();
+            pageError = ex.Message;
+        }
+
+        try
+        {
+            tenants = await TenantService.GetAllAsync();
+        }
+        catch
+        {
+            tenants = new();
+        }
+
+        try
+        {
+            devices = await DeviceService.GetAllAsync();
+        }
+        catch
+        {
+            devices = new();
+        }
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private void StartCreate()
+    {
+        formUser = CreateEmptyUser();
+        formError = null;
+        panelMode = PanelMode.Create;
+        showPanel = true;
+    }
+
+    private void ViewUser(LocalUserDTO user)
+    {
+        formUser = Clone(user);
+        formError = null;
+        panelMode = PanelMode.View;
+        showPanel = true;
+    }
+
+    private void StartEdit(LocalUserDTO user)
+    {
+        formUser = Clone(user);
+        formError = null;
+        panelMode = PanelMode.Edit;
+        showPanel = true;
+    }
+
+    private void SwitchToEdit()
+    {
+        panelMode = PanelMode.Edit;
+        formError = null;
+    }
+
+    private void ClosePanel()
+    {
+        showPanel = false;
+        formError = null;
+        isSaving = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        formError = null;
+
+        if (string.IsNullOrWhiteSpace(formUser.Name))
+        {
+            formError = "Name is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(formUser.PinCode))
+        {
+            formError = "PIN code is required.";
+            return;
+        }
+
+        if (formUser.TenantId == Guid.Empty)
+        {
+            formError = "Tenant is required.";
+            return;
+        }
+
+        if (formUser.DeviceId.HasValue &&
+            !devices.Any(device => device.Id == formUser.DeviceId.Value && device.TenantId == formUser.TenantId))
+        {
+            formError = "Selected device must belong to the selected tenant.";
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            if (panelMode == PanelMode.Create)
+            {
+                var created = await LocalUserService.CreateAsync(formUser);
+                localUsers.Add(created);
+                formUser = Clone(created);
+            }
+            else
+            {
+                var updated = await LocalUserService.UpdateAsync(formUser.Id, formUser);
+                SyncToList(updated);
+                formUser = Clone(updated);
+            }
+
+            panelMode = PanelMode.View;
+        }
+        catch (Exception ex)
+        {
+            formError = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Delete this local user? This cannot be undone."))
+        {
+            return;
+        }
+
+        try
+        {
+            await LocalUserService.DeleteAsync(id);
+            localUsers.RemoveAll(user => user.Id == id);
+
+            if (showPanel && formUser.Id == id)
+            {
+                ClosePanel();
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Delete failed: {ex.Message}");
+        }
+    }
+
+    private void SyncToList(LocalUserDTO updated)
+    {
+        var index = localUsers.FindIndex(user => user.Id == updated.Id);
+        if (index >= 0)
+        {
+            localUsers[index] = updated;
+        }
+    }
+
+    private string ResolveTenantName(Guid tenantId) =>
+        tenants.FirstOrDefault(tenant => tenant.Id == tenantId)?.Name ?? "—";
+
+    private string ResolveDeviceName(Guid? deviceId) =>
+        deviceId.HasValue
+            ? devices.FirstOrDefault(device => device.Id == deviceId.Value)?.Name ?? "—"
+            : "—";
+
+    private static LocalUserDTO Clone(LocalUserDTO user) => new()
+    {
+        Id = user.Id,
+        Name = user.Name,
+        PinCode = user.PinCode,
+        DeviceId = user.DeviceId,
+        TenantId = user.TenantId,
+        Device = user.Device,
+        Tenant = user.Tenant
+    };
+
+    private static LocalUserDTO CreateEmptyUser() => new()
+    {
+        Name = string.Empty,
+        PinCode = string.Empty,
+        DeviceId = null,
+        TenantId = Guid.Empty
+    };
+}

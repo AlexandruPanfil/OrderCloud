@@ -45,7 +45,7 @@ namespace OrderCloud.API.Controllers
         {
             if (order == null) return BadRequest();
             if (order.Id == Guid.Empty) order.Id = Guid.NewGuid();
-            if (!await TryValidateReferencesAsync(order, cancellationToken))
+            if (!await PrepareOrderForSaveAsync(order, cancellationToken))
             {
                 return ValidationProblem(ModelState);
             }
@@ -90,7 +90,7 @@ namespace OrderCloud.API.Controllers
         public async Task<ActionResult<OrderDTO>> Update(Guid id, [FromBody] OrderDTO order, CancellationToken cancellationToken = default)
         {
             if (order == null || id == Guid.Empty) return BadRequest();
-            if (!await TryValidateReferencesAsync(order, cancellationToken))
+            if (!await PrepareOrderForSaveAsync(order, cancellationToken))
             {
                 return ValidationProblem(ModelState);
             }
@@ -148,40 +148,155 @@ namespace OrderCloud.API.Controllers
 
         // Items endpoints delegate to EF as needed (omitted for brevity — implement similarly to in-memory version but using _db and SaveChanges)
 
-        private async Task<bool> TryValidateReferencesAsync(OrderDTO order, CancellationToken cancellationToken)
+        private async Task<bool> PrepareOrderForSaveAsync(OrderDTO order, CancellationToken cancellationToken)
         {
-            if (order.TenantId == Guid.Empty)
+            var tenant = await ResolveTenantAsync(order, cancellationToken);
+            var localUser = tenant == null
+                ? null
+                : await ResolveLocalUserAsync(order, tenant.Id, cancellationToken);
+
+            if (tenant == null || localUser == null)
             {
-                ModelState.AddModelError(nameof(order.TenantId), "Tenant is required.");
-            }
-            else if (!await _db.Tenants.AnyAsync(t => t.Id == order.TenantId, cancellationToken))
-            {
-                ModelState.AddModelError(nameof(order.TenantId), "Selected tenant was not found.");
+                return false;
             }
 
-            if (order.CustomerId == Guid.Empty)
+            order.TenantId = tenant.Id;
+            order.LocalUserId = localUser.Id;
+
+            await ResolveCustomerAsync(order, cancellationToken);
+
+            order.Tenant = null;
+            order.LocalUser = null;
+            order.Customer = null;
+
+            return ModelState.IsValid;
+        }
+
+        private async Task<TenantDTO?> ResolveTenantAsync(OrderDTO order, CancellationToken cancellationToken)
+        {
+            var apiKey = order.Tenant?.ApiKey;
+            var apiSecret = order.Tenant?.ApiSecret;
+
+            if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(apiSecret))
+            {
+                ModelState.AddModelError(nameof(order.Tenant), "Tenant api key and secret key are required.");
+                return null;
+            }
+
+            var tenant = await _db.Tenants
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    t => t.ApiKey == apiKey && t.ApiSecret == apiSecret,
+                    cancellationToken);
+
+            if (tenant == null)
+            {
+                ModelState.AddModelError(nameof(order.Tenant), "Tenant with the provided api key and secret key was not found.");
+            }
+
+            return tenant;
+        }
+
+        private async Task<LocalUserDTO?> ResolveLocalUserAsync(OrderDTO order, Guid tenantId, CancellationToken cancellationToken)
+        {
+            LocalUserDTO? localUser = null;
+            var localUserId = order.LocalUserId;
+
+            if (localUserId.HasValue && localUserId.Value == Guid.Empty)
+            {
+                order.LocalUserId = null;
+                localUserId = null;
+            }
+
+            if (localUserId.HasValue)
+            {
+                localUser = await _db.LocalUsers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(
+                        u => u.Id == localUserId.Value && u.TenantId == tenantId,
+                        cancellationToken);
+            }
+
+            if (localUser == null &&
+                order.LocalUser?.Id != Guid.Empty &&
+                order.LocalUser?.Id != null)
+            {
+                localUser = await _db.LocalUsers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(
+                        u => u.Id == order.LocalUser!.Id && u.TenantId == tenantId,
+                        cancellationToken);
+            }
+
+            if (localUser == null &&
+                order.LocalUser != null &&
+                !string.IsNullOrWhiteSpace(order.LocalUser.Name) &&
+                !string.IsNullOrWhiteSpace(order.LocalUser.PinCode))
+            {
+                localUser = await _db.LocalUsers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(
+                        u => u.TenantId == tenantId &&
+                             u.Name == order.LocalUser.Name &&
+                             u.PinCode == order.LocalUser.PinCode,
+                        cancellationToken);
+            }
+
+            if (localUser == null)
+            {
+                ModelState.AddModelError(nameof(order.LocalUser), "A valid local user is required for the selected tenant.");
+            }
+
+            return localUser;
+        }
+
+        private async Task ResolveCustomerAsync(OrderDTO order, CancellationToken cancellationToken)
+        {
+            if (order.CustomerId.HasValue && order.CustomerId.Value == Guid.Empty)
             {
                 order.CustomerId = null;
             }
 
-            if (order.LocalUserId == Guid.Empty)
+            if (order.CustomerId.HasValue)
             {
-                order.LocalUserId = null;
+                var existingById = await _db.Customers
+                    .AsNoTracking()
+                    .AnyAsync(c => c.Id == order.CustomerId.Value, cancellationToken);
+
+                if (existingById)
+                {
+                    return;
+                }
             }
 
-            if (order.CustomerId.HasValue &&
-                !await _db.Customers.AnyAsync(c => c.Id == order.CustomerId.Value, cancellationToken))
+            if (order.Customer?.Id != Guid.Empty)
             {
-                ModelState.AddModelError(nameof(order.CustomerId), "Selected customer was not found.");
+                var existingFromPayload = await _db.Customers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == order.Customer!.Id, cancellationToken);
+
+                if (existingFromPayload != null)
+                {
+                    order.CustomerId = existingFromPayload.Id;
+                    return;
+                }
             }
 
-            if (order.LocalUserId.HasValue &&
-                !await _db.LocalUsers.AnyAsync(u => u.Id == order.LocalUserId.Value, cancellationToken))
+            if (order.Customer == null)
             {
-                ModelState.AddModelError(nameof(order.LocalUserId), "Selected local user was not found.");
+                order.CustomerId = null;
+                return;
             }
 
-            return ModelState.IsValid;
+            var customer = new CustomerDTO
+            {
+                Id = order.Customer.Id == Guid.Empty ? Guid.NewGuid() : order.Customer.Id,
+                Name = string.IsNullOrWhiteSpace(order.Customer.Name) ? "Unknown customer" : order.Customer.Name,
+                IDNO = order.Customer.IDNO
+            };
+
+            _db.Customers.Add(customer);
+            order.CustomerId = customer.Id;
         }
     }
 }
