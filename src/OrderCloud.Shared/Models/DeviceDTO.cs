@@ -9,8 +9,8 @@
         //Link to Tenant
         public Guid TenantId    { get; set; }
         public TenantDTO Tenant { get; set; }
-        //Link to Local User
-        public Guid ?LocalUserId { get; set; }
-        public LocalUserDTO ?LocalUser { get; set; }
+        ////Link to Local User
+        //public Guid? LocalUserId { get; set; }
+        //public LocalUserDTO? LocalUser { get; set; }
     }
 }

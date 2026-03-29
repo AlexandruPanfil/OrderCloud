@@ -3,20 +3,20 @@
     public class OrderDTO
     {
         public Guid Id { get; set; }
-        public string Status { get; set; }
+        public string Status { get; set; } = string.Empty; // ИИнициализация
         public decimal Total { get; set; } = 0;
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         //Link to Tenant
         public Guid TenantId { get; set; }
-        public TenantDTO Tenant { get; set; }
+        public TenantDTO? Tenant { get; set; } // Делаем nullable
         //Link to Local User
         public Guid? LocalUserId { get; set; }
-        public LocalUserDTO? LocalUser { get; set; }
+        public LocalUserDTO? LocalUser { get; set; } // Уже nullable
         //Link to Customer
-        public Guid CustomerId { get; set; }
-        public CustomerDTO Customer { get; set; }
+        public Guid? CustomerId { get; set; }
+        public CustomerDTO? Customer { get; set; } // Делаем nullable
         //Link to Items
-        public List<ItemDTO> Items { get; set; }
+        public List<ItemDTO> Items { get; set; } = new();
     }
 }

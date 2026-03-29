@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OrderCloud.Blazor.Data;
 
@@ -11,9 +12,11 @@ using OrderCloud.Blazor.Data;
 namespace OrderCloud.Blazor.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260329080134_DeletedDB")]
+    partial class DeletedDB
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -220,152 +223,6 @@ namespace OrderCloud.Blazor.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("OrderCloud.Blazor.Models.CustomerDTO", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("IDNO")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("CustomerDTO");
-                });
-
-            modelBuilder.Entity("OrderCloud.Blazor.Models.DeviceDTO", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("ActiveTill")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("DeviceDTO");
-                });
-
-            modelBuilder.Entity("OrderCloud.Blazor.Models.ItemDTO", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("OrderId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Price")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("Quantity")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("TVA")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("Total")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrderId");
-
-                    b.ToTable("ItemDTO");
-                });
-
-            modelBuilder.Entity("OrderCloud.Blazor.Models.LocalUserDTO", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("DeviceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PinCode")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DeviceId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("LocalUserDTO");
-                });
-
-            modelBuilder.Entity("OrderCloud.Blazor.Models.OrderDTO", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CustomerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("LocalUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Total")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CustomerId");
-
-                    b.HasIndex("LocalUserId");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("Orders");
-                });
-
             modelBuilder.Entity("OrderCloud.Blazor.Models.TenantDTO", b =>
                 {
                     b.Property<Guid>("Id")
@@ -445,69 +302,6 @@ namespace OrderCloud.Blazor.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("OrderCloud.Blazor.Models.DeviceDTO", b =>
-                {
-                    b.HasOne("OrderCloud.Blazor.Models.TenantDTO", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("OrderCloud.Blazor.Models.ItemDTO", b =>
-                {
-                    b.HasOne("OrderCloud.Blazor.Models.OrderDTO", "Order")
-                        .WithMany("Items")
-                        .HasForeignKey("OrderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Order");
-                });
-
-            modelBuilder.Entity("OrderCloud.Blazor.Models.LocalUserDTO", b =>
-                {
-                    b.HasOne("OrderCloud.Blazor.Models.DeviceDTO", "Device")
-                        .WithMany()
-                        .HasForeignKey("DeviceId");
-
-                    b.HasOne("OrderCloud.Blazor.Models.TenantDTO", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Device");
-
-                    b.Navigation("Tenant");
-                });
-
-            modelBuilder.Entity("OrderCloud.Blazor.Models.OrderDTO", b =>
-                {
-                    b.HasOne("OrderCloud.Blazor.Models.CustomerDTO", "Customer")
-                        .WithMany()
-                        .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("OrderCloud.Blazor.Models.LocalUserDTO", "LocalUser")
-                        .WithMany()
-                        .HasForeignKey("LocalUserId");
-
-                    b.HasOne("OrderCloud.Blazor.Models.TenantDTO", "Tenant")
-                        .WithMany()
-                        .HasForeignKey("TenantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Customer");
-
-                    b.Navigation("LocalUser");
-
-                    b.Navigation("Tenant");
-                });
-
             modelBuilder.Entity("OrderCloud.Blazor.Models.TenantDTO", b =>
                 {
                     b.HasOne("OrderCloud.Blazor.Data.ApplicationUser", null)
@@ -518,11 +312,6 @@ namespace OrderCloud.Blazor.Migrations
             modelBuilder.Entity("OrderCloud.Blazor.Data.ApplicationUser", b =>
                 {
                     b.Navigation("Tenants");
-                });
-
-            modelBuilder.Entity("OrderCloud.Blazor.Models.OrderDTO", b =>
-                {
-                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }
