@@ -1,9 +1,10 @@
 @page "/localusers"
+@implements IDisposable
 @using OrderCloud.Blazor.Models
 @using OrderCloud.Blazor.Services
 @inject ILocalUserService LocalUserService
-@inject ITenantService TenantService
 @inject IDeviceService DeviceService
+@inject ITenantSelectionService TenantSelectionService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
@@ -13,7 +14,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h1 class="h3 mb-0">Local Users</h1>
-            <div class="text-muted">@localUsers.Count record@(localUsers.Count == 1 ? "" : "s")</div>
+            <div class="text-muted">@FilteredLocalUsers.Count() record@(FilteredLocalUsers.Count() == 1 ? "" : "s")</div>
         </div>
 
         <button class="btn btn-primary" @onclick="StartCreate">
@@ -110,7 +111,7 @@
                                 <label class="form-label">Tenant</label>
                                 <select class="form-select" @bind="TenantIdStr">
                                     <option value="">-- Select tenant --</option>
-                                    @foreach (var tenant in tenants)
+                                    @foreach (var tenant in VisibleTenants)
                                     {
                                         <option value="@tenant.Id">@tenant.Name</option>
                                     }
@@ -214,7 +215,6 @@
     }
 
     private List<LocalUserDTO> localUsers = new();
-    private List<TenantDTO> tenants = new();
     private List<DeviceDTO> devices = new();
 
     private string searchTerm = string.Empty;
@@ -247,23 +247,47 @@
         set => formUser.DeviceId = Guid.TryParse(value, out var deviceId) ? deviceId : null;
     }
 
+    private Guid? CurrentTenantId => TenantSelectionService.SelectedTenantId;
+
+    private IReadOnlyList<TenantDTO> VisibleTenants => TenantSelectionService.AvailableTenants;
+
     private IEnumerable<LocalUserDTO> FilteredLocalUsers => localUsers.Where(user =>
-        string.IsNullOrWhiteSpace(searchTerm) ||
-        user.Id.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-        (user.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
-        (user.PinCode?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
-        ResolveTenantName(user.TenantId).Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-        ResolveDeviceName(user.DeviceId).Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        TenantSelectionService.CanAccessTenant(user.TenantId) &&
+        (!CurrentTenantId.HasValue || user.TenantId == CurrentTenantId.Value) &&
+        (string.IsNullOrWhiteSpace(searchTerm) ||
+         user.Id.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+         (user.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+         (user.PinCode?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+         ResolveTenantName(user.TenantId).Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+         ResolveDeviceName(user.DeviceId).Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
         .OrderBy(user => user.Name);
 
     private IEnumerable<DeviceDTO> AvailableDevices =>
         formUser.TenantId == Guid.Empty
             ? Enumerable.Empty<DeviceDTO>()
-            : devices.Where(device => device.TenantId == formUser.TenantId).OrderBy(device => device.Name);
+            : devices
+                .Where(device => device.TenantId == formUser.TenantId && TenantSelectionService.CanAccessTenant(device.TenantId))
+                .OrderBy(device => device.Name);
 
     protected override async Task OnInitializedAsync()
     {
+        await TenantSelectionService.EnsureInitializedAsync();
+        TenantSelectionService.Changed += OnTenantChanged;
         await LoadDataAsync();
+    }
+
+    private void OnTenantChanged()
+    {
+        if (showPanel && panelMode == PanelMode.Create)
+        {
+            formUser.TenantId = CurrentTenantId ?? Guid.Empty;
+            if (formUser.DeviceId.HasValue && !AvailableDevices.Any(device => device.Id == formUser.DeviceId.Value))
+            {
+                formUser.DeviceId = null;
+            }
+        }
+
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private async Task LoadDataAsync()
@@ -273,21 +297,13 @@
 
         try
         {
+            await TenantSelectionService.RefreshAsync();
             localUsers = await LocalUserService.GetAllAsync();
         }
         catch (Exception ex)
         {
             localUsers = new();
             pageError = ex.Message;
-        }
-
-        try
-        {
-            tenants = await TenantService.GetAllAsync();
-        }
-        catch
-        {
-            tenants = new();
         }
 
         try
@@ -305,7 +321,7 @@
 
     private void StartCreate()
     {
-        formUser = CreateEmptyUser();
+        formUser = CreateEmptyUser(CurrentTenantId);
         formError = null;
         panelMode = PanelMode.Create;
         showPanel = true;
@@ -359,6 +375,12 @@
         if (formUser.TenantId == Guid.Empty)
         {
             formError = "Tenant is required.";
+            return;
+        }
+
+        if (!TenantSelectionService.CanAccessTenant(formUser.TenantId))
+        {
+            formError = "You can only manage local users for your assigned tenant.";
             return;
         }
 
@@ -434,7 +456,7 @@
     }
 
     private string ResolveTenantName(Guid tenantId) =>
-        tenants.FirstOrDefault(tenant => tenant.Id == tenantId)?.Name ?? "—";
+        VisibleTenants.FirstOrDefault(tenant => tenant.Id == tenantId)?.Name ?? "—";
 
     private string ResolveDeviceName(Guid? deviceId) =>
         deviceId.HasValue
@@ -452,11 +474,16 @@
         Tenant = user.Tenant
     };
 
-    private static LocalUserDTO CreateEmptyUser() => new()
+    private static LocalUserDTO CreateEmptyUser(Guid? tenantId = null) => new()
     {
         Name = string.Empty,
         PinCode = string.Empty,
         DeviceId = null,
-        TenantId = Guid.Empty
+        TenantId = tenantId ?? Guid.Empty
     };
+
+    public void Dispose()
+    {
+        TenantSelectionService.Changed -= OnTenantChanged;
+    }
 }

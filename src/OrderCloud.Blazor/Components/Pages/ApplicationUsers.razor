@@ -1,8 +1,10 @@
 @page "/users"
+@implements IDisposable
 @using OrderCloud.Blazor.Models
 @using OrderCloud.Blazor.Services
 @inject IApplicationUserService ApplicationUserService
 @inject ITenantService TenantService
+@inject ITenantSelectionService TenantSelectionService
 @rendermode InteractiveServer
 
 <PageTitle>Application Users</PageTitle>
@@ -11,7 +13,7 @@
     <div class="page-header">
         <div class="header-left">
             <h1 class="page-title">Application Users</h1>
-            <span class="count-badge">@users.Count user@(users.Count == 1 ? "" : "s")</span>
+            <span class="count-badge">@VisibleUsers.Count() user@(VisibleUsers.Count() == 1 ? "" : "s")</span>
         </div>
         <button class="btn-refresh" @onclick="LoadDataAsync" disabled="@isLoading" title="Refresh users and tenants">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -29,10 +31,16 @@
             <span>Loading users and tenants…</span>
         </div>
     }
-    else if (!users.Any())
+    else if (!VisibleTenants.Any())
     {
         <div class="empty-state">
-            <p>No users found yet. Register or sign in using the Identity pages in the sidebar.</p>
+            <p>No tenants are assigned to your account.</p>
+        </div>
+    }
+    else if (!VisibleUsers.Any())
+    {
+        <div class="empty-state">
+            <p>No users are assigned to the selected tenant.</p>
         </div>
     }
     else
@@ -42,7 +50,7 @@
         </div>
 
         <div class="users-grid">
-            @foreach (var user in users)
+            @foreach (var user in VisibleUsers)
             {
                 <div class="user-card">
                     <div class="user-card-header">
@@ -54,7 +62,6 @@
                             @if (IsSaving(user.Id))
                             {
                                 <span class="spinner spinner-sm"></span>
-                                @* <span class="spinner spinner-sm"></span> *@
                                 <span>Saving…</span>
                             }
                             else
@@ -64,27 +71,48 @@
                         </button>
                     </div>
 
-                    @if (!tenants.Any())
-                    {
-                        <div class="empty-state">
-                            <p>Create tenants first before assigning them to users.</p>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="assignment-grid">
-                            @foreach (var tenant in tenants)
-                            {
-                                var isAssigned = IsAssigned(user.Id, tenant.Id);
-                                <label class="tenant-chip @(isAssigned ? "active" : "")">
-                                    <input type="checkbox"
-                                           checked="@isAssigned"
-                                           @onchange="e => ToggleAssignment(user.Id, tenant.Id, e)" />
-                                    <span>@tenant.Name</span>
-                                </label>
-                            }
-                        </div>
-                    }
+                    <div class="mt-3">
+                        <div class="text-muted small mb-2">Assigned tenants</div>
+                        @if (AssignedTenants(user.Id).Any())
+                        {
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var tenant in AssignedTenants(user.Id))
+                                {
+                                    <span class="badge bg-primary-subtle text-primary border">@tenant.Name</span>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-muted">No tenants assigned.</div>
+                        }
+                    </div>
+
+                    <details class="mt-3">
+                        <summary>Manage tenant assignments</summary>
+
+                        @if (!VisibleTenants.Any())
+                        {
+                            <div class="empty-state">
+                                <p>Create tenants first before assigning them to users.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="assignment-grid">
+                                @foreach (var tenant in VisibleTenants)
+                                {
+                                    var isAssigned = IsAssigned(user.Id, tenant.Id);
+                                    <label class="tenant-chip @(isAssigned ? "active" : "")">
+                                        <input type="checkbox"
+                                               checked="@isAssigned"
+                                               @onchange="e => ToggleAssignment(user.Id, tenant.Id, e)" />
+                                        <span>@tenant.Name</span>
+                                    </label>
+                                }
+                            </div>
+                        }
+                    </details>
 
                     <div class="card-meta">
                         <span>@SelectedCount(user.Id) tenant@(SelectedCount(user.Id) == 1 ? "" : "s") assigned</span>
@@ -107,8 +135,18 @@
     private readonly Dictionary<string, string?> assignmentErrors = new();
     private bool isLoading = true;
 
+    private Guid? CurrentTenantId => TenantSelectionService.SelectedTenantId;
+
+    private IReadOnlyList<TenantDTO> VisibleTenants => TenantSelectionService.AvailableTenants;
+
+    private IEnumerable<ApplicationUserAssignmentDTO> VisibleUsers => users
+        .Where(UserMatchesCurrentTenant)
+        .OrderBy(user => user.UserName);
+
     protected override async Task OnInitializedAsync()
     {
+        await TenantSelectionService.EnsureInitializedAsync();
+        TenantSelectionService.Changed += OnTenantChanged;
         await LoadDataAsync();
     }
 
@@ -117,6 +155,7 @@
         isLoading = true;
         try
         {
+            await TenantSelectionService.RefreshAsync();
             tenants = await TenantService.GetAllAsync();
             users = await ApplicationUserService.GetAllAsync();
             SyncSelections();
@@ -140,11 +179,18 @@
         }
     }
 
+    private IEnumerable<TenantDTO> AssignedTenants(string userId) =>
+        selections.TryGetValue(userId, out var set)
+            ? VisibleTenants.Where(tenant => set.Contains(tenant.Id)).OrderBy(tenant => tenant.Name)
+            : Enumerable.Empty<TenantDTO>();
+
     private bool IsAssigned(string userId, Guid tenantId) =>
         selections.TryGetValue(userId, out var set) && set.Contains(tenantId);
 
     private int SelectedCount(string userId) =>
-        selections.TryGetValue(userId, out var set) ? set.Count : 0;
+        selections.TryGetValue(userId, out var set)
+            ? VisibleTenants.Count(tenant => set.Contains(tenant.Id))
+            : 0;
 
     private void ToggleAssignment(string userId, Guid tenantId, ChangeEventArgs args)
     {
@@ -203,5 +249,29 @@
             savingStates[userId] = false;
             StateHasChanged();
         }
+    }
+
+    private bool UserMatchesCurrentTenant(ApplicationUserAssignmentDTO user)
+    {
+        if (!VisibleTenants.Any())
+        {
+            return false;
+        }
+
+        var tenantIds = user.TenantIds ?? new List<Guid>();
+
+        return CurrentTenantId.HasValue
+            ? tenantIds.Contains(CurrentTenantId.Value)
+            : tenantIds.Any(tenantId => VisibleTenants.Any(tenant => tenant.Id == tenantId));
+    }
+
+    private void OnTenantChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        TenantSelectionService.Changed -= OnTenantChanged;
     }
 }

@@ -1,255 +1,153 @@
-﻿@page "/tenants"
+@page "/tenants"
+@implements IDisposable
 @using OrderCloud.Blazor.Models
-@inject OrderCloud.Blazor.Services.ITenantService TenantService
+@using OrderCloud.Blazor.Services
+@inject ITenantService TenantService
+@inject ITenantSelectionService TenantSelectionService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>Tenants</PageTitle>
 
-<div class="tenants-page">
-    <div class="page-header">
-        <div class="header-left">
-            <h1 class="page-title">Tenants</h1>
-            <span class="tenant-count">@tenants.Count tenant@(tenants.Count == 1 ? "" : "s")</span>
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 mb-0">Tenants</h1>
+            <div class="text-muted">@FilteredTenants.Count() tenant@(FilteredTenants.Count() == 1 ? "" : "s")</div>
         </div>
-        <button class="btn-create" @onclick="StartCreate">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2z" />
-            </svg>
-            New Tenant
-        </button>
+        <button class="btn btn-primary" @onclick="StartCreate">New Tenant</button>
     </div>
 
-    <div class="toolbar">
-        <div class="search-box">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" class="search-icon">
-                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z" />
-            </svg>
-            <input class="search-input" placeholder="Search tenants…" @bind="searchTerm" @bind:event="oninput" />
+    <div class="row g-2 mb-3">
+        <div class="col-md-8">
+            <input class="form-control" placeholder="Search tenants..." @bind="searchTerm" @bind:event="oninput" />
         </div>
-        <button class="btn-refresh" @onclick="LoadTenantsAsync" title="Refresh">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z" />
-                <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
-            </svg>
-        </button>
+        <div class="col-md-4">
+            <button class="btn btn-outline-secondary w-100" @onclick="LoadTenantsAsync" disabled="@isLoading">Refresh</button>
+        </div>
     </div>
 
-    @if (isLoading)
+    @if (showPanel)
     {
-        <div class="loading-state">
-            <div class="spinner"></div>
-            <span>Loading tenants…</span>
-        </div>
-    }
-    else if (!FilteredTenants.Any())
-    {
-        <div class="empty-state">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16" class="empty-icon">
-                <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm8 0A1.5 1.5 0 0 1 10.5 9h3A1.5 1.5 0 0 1 15 10.5v3A1.5 1.5 0 0 1 13.5 15h-3A1.5 1.5 0 0 1 9 13.5z" />
-            </svg>
-            <p>@(string.IsNullOrEmpty(searchTerm) ? "No tenants yet. Create your first one." : $"No tenants match \"{searchTerm}\"")</p>
-        </div>
-    }
-    else
-    {
-        <div class="tenants-grid">
-            @foreach (var t in FilteredTenants)
-            {
-                <div class="tenant-card" @onclick="() => ViewTenant(t)">
-                    <div class="tenant-avatar">@(t.Name?.Length > 0 ? t.Name[0].ToString().ToUpper() : "?")</div>
-                    <div class="tenant-info">
-                        <div class="tenant-name">@t.Name</div>
-                        <div class="tenant-key">
-                            <span class="key-label">API Key</span>
-                            <code class="key-value">@TruncateKey(t.ApiKey)</code>
-                        </div>
-                    </div>
-                    <div class="tenant-actions" @onclick:stopPropagation="true">
-                        <button class="btn-icon btn-view" title="View details" @onclick="() => ViewTenant(t)">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z" />
-                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0" />
-                            </svg>
-                        </button>
-                        <button class="btn-icon btn-delete" title="Delete tenant" @onclick="() => DeleteAsync(t.Id, t.Name)">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z" />
-                                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            }
-        </div>
-    }
-</div>
-
-<!-- Modal Backdrop -->
-@if (showModal)
-{
-    <div class="modal-backdrop" @onclick="CloseModal">
-        <div class="modal-panel" @onclick:stopPropagation="true">
-            <div class="modal-header">
-                <div class="modal-title-group">
-                    @if (IsViewMode)
-                    {
-                        <div class="modal-avatar">@(formTenant.Name?.Length > 0 ? formTenant.Name[0].ToString().ToUpper() : "?")</div>
-                    }
-                    <h2 class="modal-title">@(IsViewMode? formTenant.Name: "New Tenant")</h2>
-                </div>
-                <button class="modal-close" @onclick="CloseModal">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
-                    </svg>
-                </button>
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>@(isViewMode ? "Tenant Details" : "Create Tenant")</strong>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClosePanel">Close</button>
             </div>
-
-            <div class="modal-body">
-                @if (!IsViewMode)
+            <div class="card-body">
+                @if (!isViewMode)
                 {
-                    <!-- CREATE FORM -->
-                    <EditForm Model="formTenant" OnValidSubmit="HandleSubmitAsync">
-                        <div class="field-group">
-                            <label class="field-label">Tenant Name <span class="required">*</span></label>
-                            <input class="field-input @(string.IsNullOrEmpty(formTenant.Name) && submitted ? "input-error" : "")"
-                                   @bind="formTenant.Name"
-                                   placeholder="e.g. Acme Corporation"
-                                   autofocus />
-                            @if (string.IsNullOrWhiteSpace(formTenant.Name) && submitted)
-                            {
-                                <span class="field-error">Name is required.</span>
-                            }
+                    <EditForm Model="formTenant" OnSubmit="HandleSubmitAsync">
+                        <div>
+                            <label class="form-label">Tenant Name</label>
+                            <InputText class="form-control" @bind-Value="formTenant.Name" />
                         </div>
 
-                        @if (!string.IsNullOrEmpty(formError))
+                        @if (!string.IsNullOrWhiteSpace(formError))
                         {
-                            <div class="alert-error">@formError</div>
+                            <div class="alert alert-danger mt-3 mb-0">@formError</div>
                         }
 
-                        <div class="modal-footer">
-                            <button type="button" class="btn-secondary-action" @onclick="CloseModal">Cancel</button>
-                            <button type="submit" class="btn-primary-action" disabled="@isSubmitting">
-                                @if (isSubmitting)
-                                {
-                                    <span class="spinner-sm"></span>
-                                    <span>Creating…</span>
-                                }
-                                else
-                                {
-                                    <span>Create Tenant</span>
-                                }
-                            </button>
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            <button type="button" class="btn btn-secondary" @onclick="ClosePanel">Cancel</button>
+                            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Create</button>
                         </div>
                     </EditForm>
                 }
                 else
                 {
-                    <!-- VIEW MODE -->
-                    <div class="detail-rows">
-                        <div class="detail-row">
-                            <span class="detail-label">Name</span>
-                            <span class="detail-value">@formTenant.Name</span>
-                        </div>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Name</dt>
+                        <dd class="col-sm-9">@formTenant.Name</dd>
+                        <dt class="col-sm-3">API Key</dt>
+                        <dd class="col-sm-9"><code>@formTenant.ApiKey</code></dd>
+                        <dt class="col-sm-3">API Secret</dt>
+                        <dd class="col-sm-9"><code>@MaskSecret(formTenant.ApiSecret)</code></dd>
+                        <dt class="col-sm-3">Id</dt>
+                        <dd class="col-sm-9"><code>@formTenant.Id</code></dd>
+                    </dl>
 
-                        @if (!string.IsNullOrEmpty(formTenant.ApiKey))
-                        {
-                            <div class="detail-row">
-                                <span class="detail-label">API Key</span>
-                                <div class="copy-field">
-                                    <code class="detail-code">@formTenant.ApiKey</code>
-                                    <button class="btn-copy" @onclick="() => CopyToClipboardAsync(formTenant.ApiKey)" title="Copy API Key">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                            <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z" />
-                                            <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z" />
-                                        </svg>
-                                        @(copied == "key" ? "Copied!" : "Copy")
-                                    </button>
-                                </div>
-                            </div>
-                        }
-
-                        @if (!string.IsNullOrEmpty(formTenant.ApiSecret))
-                        {
-                            <div class="detail-row">
-                                <span class="detail-label">API Secret</span>
-                                <div class="copy-field">
-                                    <code class="detail-code secret">@(showSecret? formTenant.ApiSecret: MaskSecret(formTenant.ApiSecret))</code>
-                                    <button class="btn-copy" @onclick="() => showSecret = !showSecret" title="@(showSecret ? "Hide" : "Reveal")">
-                                        @if (showSecret)
-                                        {
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                                <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7 7 0 0 0-2.79.588l.77.771A6 6 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755q-.247.248-.517.486z" />
-                                                <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829" />
-                                                <path d="M3.35 5.47q-.27.24-.518.487A13 13 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7 7 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12z" />
-                                            </svg>
-                                        }
-                                        else
-                                        {
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z" />
-                                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0" />
-                                            </svg>
-                                        }
-                                        @(showSecret ? "Hide" : "Reveal")
-                                    </button>
-                                    <button class="btn-copy" @onclick="() => CopyToClipboardAsync(formTenant.ApiSecret)" title="Copy Secret">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                            <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z" />
-                                            <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z" />
-                                        </svg>
-                                        @(copied == "secret" ? "Copied!" : "Copy")
-                                    </button>
-                                </div>
-                            </div>
-                        }
-
-                        <div class="detail-row">
-                            <span class="detail-label">ID</span>
-                            <span class="detail-value id-value">@formTenant.Id</span>
-                        </div>
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="button" class="btn-danger-action" @onclick="() => DeleteFromModal(formTenant.Id, formTenant.Name)">
-                            Delete Tenant
-                        </button>
-                        <button type="button" class="btn-secondary-action" @onclick="CloseModal">Close</button>
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button type="button" class="btn btn-danger" @onclick="() => DeleteFromPanel(formTenant.Id, formTenant.Name)">Delete</button>
+                        <button type="button" class="btn btn-secondary" @onclick="ClosePanel">Close</button>
                     </div>
                 }
             </div>
         </div>
+    }
+
+    <div class="card">
+        <div class="card-header">Assigned Tenants</div>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>API Key</th>
+                        <th style="width: 180px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (FilteredTenants.Any())
+                    {
+                        @foreach (var tenant in FilteredTenants)
+                        {
+                            <tr>
+                                <td>@tenant.Name</td>
+                                <td><code>@TruncateKey(tenant.ApiKey)</code></td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ViewTenant(tenant)">View</button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(tenant.Id, tenant.Name)">Delete</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="3" class="text-center text-muted py-4">No tenants found.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
-}
+</div>
 
 @code {
-    private List<TenantDTO> tenants = new();
+    private readonly List<TenantDTO> tenants = new();
     private string searchTerm = string.Empty;
     private TenantDTO formTenant = new();
-    private bool isLoading = false;
-    private bool isSubmitting = false;
+    private bool isLoading;
+    private bool isSubmitting;
+    private bool showPanel;
+    private bool isViewMode;
     private string? formError;
-    private bool submitted = false;
-    private bool showModal = false;
-    private bool IsViewMode { get; set; }
-    private string? copied;
-    private bool showSecret = false;
+
+    private Guid? CurrentTenantId => TenantSelectionService.SelectedTenantId;
+
+    private IEnumerable<TenantDTO> FilteredTenants => tenants
+        .Where(tenant => !CurrentTenantId.HasValue || tenant.Id == CurrentTenantId.Value)
+        .Where(tenant => string.IsNullOrWhiteSpace(searchTerm)
+            || (tenant.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+        .OrderBy(tenant => tenant.Name);
 
     protected override async Task OnInitializedAsync()
     {
+        await TenantSelectionService.EnsureInitializedAsync();
+        TenantSelectionService.Changed += OnTenantChanged;
         await LoadTenantsAsync();
     }
-
-    private IEnumerable<TenantDTO> FilteredTenants =>
-        tenants.Where(t => string.IsNullOrWhiteSpace(searchTerm) ||
-            (t.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
 
     private async Task LoadTenantsAsync()
     {
         isLoading = true;
+
         try
         {
-            tenants = await TenantService.GetAllAsync();
+            await TenantSelectionService.RefreshAsync();
+            tenants.Clear();
+            tenants.AddRange(TenantSelectionService.AvailableTenants);
         }
         finally
         {
@@ -260,11 +158,17 @@
 
     private void StartCreate()
     {
-        formTenant = new() { Id = Guid.Empty, Name = string.Empty, ApiKey = string.Empty, ApiSecret = string.Empty };
+        formTenant = new TenantDTO
+        {
+            Id = Guid.Empty,
+            Name = string.Empty,
+            ApiKey = string.Empty,
+            ApiSecret = string.Empty
+        };
+
         formError = null;
-        submitted = false;
-        IsViewMode = false;
-        showModal = true;
+        isViewMode = false;
+        showPanel = true;
     }
 
     private void ViewTenant(TenantDTO tenant)
@@ -274,51 +178,54 @@
             Id = tenant.Id,
             Name = tenant.Name,
             ApiKey = tenant.ApiKey,
-            ApiSecret = tenant.ApiSecret
+            ApiSecret = tenant.ApiSecret,
+            ApplicationUserId = tenant.ApplicationUserId
         };
+
         formError = null;
-        IsViewMode = true;
-        showSecret = false;
-        copied = null;
-        showModal = true;
+        isViewMode = true;
+        showPanel = true;
     }
 
-    private void CloseModal()
+    private void ClosePanel()
     {
-        showModal = false;
+        showPanel = false;
         formError = null;
-        submitted = false;
-        showSecret = false;
-        copied = null;
+        isSubmitting = false;
     }
 
     private async Task HandleSubmitAsync()
     {
-        submitted = true;
+        formError = null;
+
         if (string.IsNullOrWhiteSpace(formTenant.Name))
         {
             formError = "Name is required.";
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(TenantSelectionService.CurrentUserId))
+        {
+            formError = "You must be logged in to create a tenant.";
+            return;
+        }
+
         isSubmitting = true;
-        formError = null;
+
         try
         {
-            var toCreate = new TenantDTO
+            var created = await TenantService.CreateAsync(new TenantDTO
             {
                 Id = Guid.Empty,
                 Name = formTenant.Name,
                 ApiKey = string.Empty,
-                ApiSecret = string.Empty
-            };
-            var created = await TenantService.CreateAsync(toCreate);
-            tenants.Add(created);
-            // Switch to view mode to show the new keys
+                ApiSecret = string.Empty,
+                ApplicationUserId = TenantSelectionService.CurrentUserId
+            });
+
+            await LoadTenantsAsync();
             formTenant = created;
-            IsViewMode = true;
-            submitted = false;
-            StateHasChanged();
+            isViewMode = true;
         }
         catch (Exception ex)
         {
@@ -333,13 +240,20 @@
     private async Task DeleteAsync(Guid id, string? name)
     {
         var confirm = await JS.InvokeAsync<bool>("confirm", $"Delete tenant '{name}'?");
-        if (!confirm) return;
+        if (!confirm)
+        {
+            return;
+        }
 
         try
         {
             await TenantService.DeleteAsync(id);
-            tenants.RemoveAll(t => t.Id == id);
-            StateHasChanged();
+            await LoadTenantsAsync();
+
+            if (showPanel && formTenant.Id == id)
+            {
+                ClosePanel();
+            }
         }
         catch (Exception ex)
         {
@@ -347,36 +261,41 @@
         }
     }
 
-    private async Task DeleteFromModal(Guid id, string? name)
+    private async Task DeleteFromPanel(Guid id, string? name)
     {
-        CloseModal();
+        ClosePanel();
         await DeleteAsync(id, name);
     }
 
-    private async Task CopyToClipboardAsync(string? text)
+    private void OnTenantChanged()
     {
-        if (string.IsNullOrEmpty(text)) return;
-        try
-        {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
-            copied = text == formTenant.ApiKey ? "key" : "secret";
-            StateHasChanged();
-            await Task.Delay(1800);
-            copied = null;
-            StateHasChanged();
-        }
-        catch { /* ignore clipboard errors */ }
+        tenants.Clear();
+        tenants.AddRange(TenantSelectionService.AvailableTenants);
+        _ = InvokeAsync(StateHasChanged);
     }
 
     private static string TruncateKey(string? key)
     {
-        if (string.IsNullOrEmpty(key)) return "—";
-        return key.Length > 16 ? key[..8] + "…" + key[^4..] : key;
+        if (string.IsNullOrEmpty(key))
+        {
+            return "—";
+        }
+
+        return key.Length > 16 ? key[..8] + "..." + key[^4..] : key;
     }
 
     private static string MaskSecret(string? secret)
     {
-        if (string.IsNullOrEmpty(secret)) return "—";
-        return new string('•', Math.Min(secret.Length, 24));
+        if (string.IsNullOrEmpty(secret))
+        {
+            return "—";
+        }
+
+        return new string('*', Math.Min(secret.Length, 24));
+    }
+
+    public void Dispose()
+    {
+        TenantSelectionService.Changed -= OnTenantChanged;
     }
 }
