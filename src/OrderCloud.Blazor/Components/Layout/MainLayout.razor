@@ -1,4 +1,6 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject OrderCloud.Blazor.Services.ITenantSelectionService TenantSelectionService
 
 <div class="page">
     <div class="sidebar">
@@ -21,3 +23,22 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        TenantSelectionService.Changed += OnTenantChanged;
+    }
+
+    private void OnTenantChanged()
+    {
+        // Re-rendering the layout cascades down and re-renders the current page,
+        // so filter computed properties (FilteredOrders, FilteredTenants, etc.) re-evaluate.
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        TenantSelectionService.Changed -= OnTenantChanged;
+    }
+}

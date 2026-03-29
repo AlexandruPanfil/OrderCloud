@@ -1,0 +1,451 @@
+@page "/devices"
+@implements IDisposable
+@using OrderCloud.Blazor.Models
+@using OrderCloud.Blazor.Services
+@inject IDeviceService DeviceService
+@inject ITenantSelectionService TenantSelectionService
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Devices</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 mb-0">Devices</h1>
+            <div class="text-muted">@FilteredDevices.Count() record@(FilteredDevices.Count() == 1 ? "" : "s")</div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" @onclick="LoadDataAsync" disabled="@isLoading">
+                Refresh
+            </button>
+
+            <button class="btn btn-primary" @onclick="StartCreate">
+                New Device
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-8">
+            <input class="form-control"
+                   placeholder="Search by name, status, tenant, or id..."
+                   @bind="searchTerm"
+                   @bind:event="oninput" />
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-outline-secondary w-100" @onclick="LoadDataAsync" disabled="@isLoading">
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(pageError))
+    {
+        <div class="alert alert-danger">@pageError</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="alert alert-info">Loading devices…</div>
+    }
+
+    @if (showPanel)
+    {
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    @if (panelMode == PanelMode.Create)
+                    {
+                        <strong>Create Device</strong>
+                    }
+                    else if (panelMode == PanelMode.Edit)
+                    {
+                        <strong>Edit Device</strong>
+                    }
+                    else
+                    {
+                        <strong>View Device</strong>
+                    }
+                </div>
+
+                <div class="d-flex gap-2">
+                    @if (panelMode == PanelMode.View)
+                    {
+                        <button class="btn btn-outline-primary btn-sm" @onclick="SwitchToEdit">Edit</button>
+                    }
+
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="ClosePanel">Close</button>
+                </div>
+            </div>
+
+            <div class="card-body">
+                @if (panelMode == PanelMode.View)
+                {
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Name</dt>
+                        <dd class="col-sm-9">@formDevice.Name</dd>
+
+                        <dt class="col-sm-3">Status</dt>
+                        <dd class="col-sm-9">@formDevice.Status</dd>
+
+                        <dt class="col-sm-3">Active Till</dt>
+                        <dd class="col-sm-9">@formDevice.ActiveTill.ToString("yyyy-MM-dd")</dd>
+
+                        <dt class="col-sm-3">Tenant</dt>
+                        <dd class="col-sm-9">@ResolveTenantName(formDevice.TenantId)</dd>
+
+                        <dt class="col-sm-3">Id</dt>
+                        <dd class="col-sm-9"><code>@formDevice.Id</code></dd>
+                    </dl>
+                }
+                else
+                {
+                    <EditForm Model="formDevice" OnSubmit="SaveAsync">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Name</label>
+                                <InputText class="form-control" @bind-Value="formDevice.Name" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Status</label>
+                                <InputSelect class="form-select" @bind-Value="formDevice.Status">
+                                    <option value="">-- Select status --</option>
+                                    @foreach (var status in Statuses)
+                                    {
+                                        <option value="@status">@status</option>
+                                    }
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Active Till</label>
+                                <InputDate class="form-control" @bind-Value="formDevice.ActiveTill" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Tenant</label>
+                                <select class="form-select" @bind="TenantIdStr">
+                                    <option value="">-- Select tenant --</option>
+                                    @foreach (var tenant in VisibleTenants)
+                                    {
+                                        <option value="@tenant.Id">@tenant.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(formError))
+                        {
+                            <div class="alert alert-danger mt-3 mb-0">@formError</div>
+                        }
+
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            @if (panelMode == PanelMode.Edit)
+                            {
+                                <button type="button" class="btn btn-danger" @onclick="() => DeleteAsync(formDevice.Id)">
+                                    Delete
+                                </button>
+                            }
+
+                            <button type="button" class="btn btn-secondary" @onclick="ClosePanel">Cancel</button>
+                            <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                @(panelMode == PanelMode.Create ? "Create" : "Save")
+                            </button>
+                        </div>
+                    </EditForm>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-header">
+            Devices
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Active Till</th>
+                        <th>Tenant</th>
+                        <th style="width: 220px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (FilteredDevices.Any())
+                    {
+                        @foreach (var device in FilteredDevices)
+                        {
+                            <tr>
+                                <td>@device.Name</td>
+                                <td>@device.Status</td>
+                                <td>@device.ActiveTill.ToString("yyyy-MM-dd")</td>
+                                <td>@ResolveTenantName(device.TenantId)</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ViewDevice(device)">View</button>
+                                    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(device)">Edit</button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(device.Id)">Delete</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                No devices found.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private enum PanelMode
+    {
+        Create,
+        Edit,
+        View
+    }
+
+    private static readonly string[] Statuses = ["Active", "Inactive", "Maintenance", "Retired"];
+
+    private readonly List<DeviceDTO> devices = new();
+
+    private string searchTerm = string.Empty;
+    private bool isLoading;
+    private bool isSaving;
+    private bool showPanel;
+    private PanelMode panelMode;
+    private string? pageError;
+    private string? formError;
+    private DeviceDTO formDevice = CreateEmptyDevice();
+
+    private Guid? CurrentTenantId => TenantSelectionService.SelectedTenantId;
+
+    private IReadOnlyList<TenantDTO> VisibleTenants => TenantSelectionService.AvailableTenants;
+
+    private IEnumerable<DeviceDTO> FilteredDevices => devices
+        .Where(device => TenantSelectionService.CanAccessTenant(device.TenantId))
+        .Where(device => !CurrentTenantId.HasValue || device.TenantId == CurrentTenantId.Value)
+        .Where(device => string.IsNullOrWhiteSpace(searchTerm)
+            || (device.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (device.Status?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
+            || ResolveTenantName(device.TenantId).Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || device.Id.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(device => device.Name);
+
+    private string TenantIdStr
+    {
+        get => formDevice.TenantId == Guid.Empty ? string.Empty : formDevice.TenantId.ToString();
+        set => formDevice.TenantId = Guid.TryParse(value, out var tenantId) ? tenantId : Guid.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await TenantSelectionService.EnsureInitializedAsync();
+        TenantSelectionService.Changed += OnTenantChanged;
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        pageError = null;
+
+        try
+        {
+            await TenantSelectionService.RefreshAsync();
+            devices.Clear();
+            devices.AddRange(await DeviceService.GetAllAsync());
+        }
+        catch (Exception ex)
+        {
+            devices.Clear();
+            pageError = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void StartCreate()
+    {
+        formDevice = new DeviceDTO
+        {
+            Id = Guid.Empty,
+            Name = string.Empty,
+            Status = string.Empty,
+            ActiveTill = DateTime.UtcNow.AddMonths(1),
+            TenantId = CurrentTenantId ?? Guid.Empty
+        };
+
+        formError = null;
+        panelMode = PanelMode.Create;
+        showPanel = true;
+    }
+
+    private void ViewDevice(DeviceDTO device)
+    {
+        formDevice = Clone(device);
+        formError = null;
+        panelMode = PanelMode.View;
+        showPanel = true;
+    }
+
+    private void StartEdit(DeviceDTO device)
+    {
+        formDevice = Clone(device);
+        formError = null;
+        panelMode = PanelMode.Edit;
+        showPanel = true;
+    }
+
+    private void SwitchToEdit()
+    {
+        panelMode = PanelMode.Edit;
+        formError = null;
+    }
+
+    private void ClosePanel()
+    {
+        showPanel = false;
+        formError = null;
+        isSaving = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        formError = null;
+
+        if (string.IsNullOrWhiteSpace(formDevice.Name))
+        {
+            formError = "Name is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(formDevice.Status))
+        {
+            formError = "Status is required.";
+            return;
+        }
+
+        if (formDevice.TenantId == Guid.Empty)
+        {
+            formError = "Tenant is required.";
+            return;
+        }
+
+        if (!TenantSelectionService.CanAccessTenant(formDevice.TenantId))
+        {
+            formError = "You can only manage devices for your assigned tenants.";
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            if (panelMode == PanelMode.Create)
+            {
+                var created = await DeviceService.CreateAsync(formDevice);
+                devices.Add(created);
+                formDevice = Clone(created);
+            }
+            else
+            {
+                var updated = await DeviceService.UpdateAsync(formDevice.Id, formDevice);
+                SyncToList(updated);
+                formDevice = Clone(updated);
+            }
+
+            panelMode = PanelMode.View;
+        }
+        catch (Exception ex)
+        {
+            formError = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Delete this device? This cannot be undone."))
+        {
+            return;
+        }
+
+        try
+        {
+            await DeviceService.DeleteAsync(id);
+            devices.RemoveAll(device => device.Id == id);
+
+            if (showPanel && formDevice.Id == id)
+            {
+                ClosePanel();
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Delete failed: {ex.Message}");
+        }
+    }
+
+    private void SyncToList(DeviceDTO updated)
+    {
+        var index = devices.FindIndex(device => device.Id == updated.Id);
+        if (index >= 0)
+        {
+            devices[index] = updated;
+        }
+    }
+
+    private string ResolveTenantName(Guid tenantId) =>
+        VisibleTenants.FirstOrDefault(tenant => tenant.Id == tenantId)?.Name ?? "—";
+
+    private static DeviceDTO Clone(DeviceDTO device) => new()
+    {
+        Id = device.Id,
+        Name = device.Name,
+        Status = device.Status,
+        ActiveTill = device.ActiveTill,
+        TenantId = device.TenantId,
+        Tenant = device.Tenant
+    };
+
+    private static DeviceDTO CreateEmptyDevice() => new()
+    {
+        Id = Guid.Empty,
+        Name = string.Empty,
+        Status = string.Empty,
+        ActiveTill = DateTime.UtcNow.AddMonths(1),
+        TenantId = Guid.Empty
+    };
+
+    private void OnTenantChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        TenantSelectionService.Changed -= OnTenantChanged;
+    }
+}

@@ -1,7 +1,6 @@
 @implements IDisposable
 @using OrderCloud.Blazor.Models
 @using OrderCloud.Blazor.Services
-@using Microsoft.AspNetCore.WebUtilities
 
 @inject NavigationManager NavigationManager
 @inject ITenantSelectionService TenantSelectionService
@@ -19,59 +18,58 @@
     <nav class="nav flex-column">
         <div class="nav-item px-3" @onclick:stopPropagation="true">
             <div class="text-white-50 small mb-1">Tenant filter</div>
+            @* @bind owns both the rendered value AND the change event.
+               Using value="@..." + @onchange causes Blazor to lose sync on re-render. *@
             <select class="form-select form-select-sm"
-                    value="@SelectedTenantIdString"
+                    @bind="SelectedTenantIdBound"
                     disabled="@(!VisibleTenants.Any())"
-                    oninput="this.value ? localStorage.setItem('ordercloud.selected-tenant-id', this.value) : localStorage.removeItem('ordercloud.selected-tenant-id')"
-                    @onclick:stopPropagation="true"
-                    @onchange="HandleTenantChangedAsync">
-                @if (!VisibleTenants.Any())
+                    @onclick:stopPropagation="true">
+                <option value="">@(VisibleTenants.Any() ? "All tenants" : "No tenants assigned")</option>
+                @foreach (var tenant in VisibleTenants)
                 {
-                    <option value="">No tenants assigned</option>
-                }
-                else
-                {
-                    <option value="">Select tenant</option>
-                    @foreach (var tenant in VisibleTenants)
-                    {
-                        <option value="@tenant.Id">@tenant.Name</option>
-                    }
+                    <option value="@tenant.Id">@tenant.Name</option>
                 }
             </select>
         </div>
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="@BuildNavHref(string.Empty)" Match="NavLinkMatch.All">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
         </div>
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="@BuildNavHref("tenants")">
+            <NavLink class="nav-link" href="devices">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Devices
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="tenants">
                 <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Tenants
             </NavLink>
         </div>
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="@BuildNavHref("localusers")">
+            <NavLink class="nav-link" href="localusers">
                 <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Local Users
             </NavLink>
         </div>
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="@BuildNavHref("users")">
+            <NavLink class="nav-link" href="users">
                 <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Users
             </NavLink>
         </div>
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="@BuildNavHref("orders")">
+            <NavLink class="nav-link" href="orders">
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Orders
             </NavLink>
         </div>
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="@BuildNavHref("auth")">
+            <NavLink class="nav-link" href="auth">
                 <span class="bi bi-lock-nav-menu" aria-hidden="true"></span> Auth Required
             </NavLink>
         </div>
@@ -110,131 +108,66 @@
 </div>
 
 @code {
-    private const string SelectedTenantStorageKey = "ordercloud.selected-tenant-id";
+    private const string StorageKey = "ordercloud.selected-tenant-id";
 
     private string? currentUrl;
-    private Guid? selectedTenantId;
     private bool selectionRestored;
 
     private IReadOnlyList<TenantDTO> VisibleTenants => TenantSelectionService.AvailableTenants;
 
-    private string SelectedTenantIdString => selectedTenantId?.ToString() ?? string.Empty;
+    // @bind needs a get/set property.
+    // getter  → what Blazor renders in the <select> on every render cycle
+    // setter  → called when the user picks a new option (replaces the old @onchange handler)
+    private string SelectedTenantIdBound
+    {
+        get => TenantSelectionService.SelectedTenantId?.ToString() ?? string.Empty;
+        set
+        {
+            var tenantId = Guid.TryParse(value, out var id) ? id : (Guid?)null;
+            TenantSelectionService.SetTenant(tenantId);
+            _ = PersistAsync(tenantId);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-        await TenantSelectionService.EnsureInitializedAsync();
-        ApplyTenantFromUri(NavigationManager.Uri);
-        selectedTenantId = TenantSelectionService.SelectedTenantId;
-
         NavigationManager.LocationChanged += OnLocationChanged;
         TenantSelectionService.Changed += OnTenantChanged;
+        await TenantSelectionService.EnsureInitializedAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender || selectionRestored)
-        {
             return;
-        }
 
         selectionRestored = true;
 
-        var storedValue = await JS.InvokeAsync<string?>("localStorage.getItem", SelectedTenantStorageKey);
-        if (Guid.TryParse(storedValue, out var storedTenantId) && TenantSelectionService.CanAccessTenant(storedTenantId))
-        {
-            TenantSelectionService.SetTenant(storedTenantId);
-        }
+        var stored = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+        if (Guid.TryParse(stored, out var storedId) && TenantSelectionService.CanAccessTenant(storedId))
+            TenantSelectionService.SetTenant(storedId);
         else if (!TenantSelectionService.SelectedTenantId.HasValue && VisibleTenants.Any())
-        {
             TenantSelectionService.SetTenant(VisibleTenants[0].Id);
-        }
 
-        selectedTenantId = TenantSelectionService.SelectedTenantId;
-
-        if (selectedTenantId.HasValue)
-        {
-            await JS.InvokeVoidAsync("localStorage.setItem", SelectedTenantStorageKey, selectedTenantId.Value.ToString());
-        }
-        else
-        {
-            await JS.InvokeVoidAsync("localStorage.removeItem", SelectedTenantStorageKey);
-        }
-
+        await PersistAsync(TenantSelectionService.SelectedTenantId);
         StateHasChanged();
     }
 
-    private async Task HandleTenantChangedAsync(ChangeEventArgs args)
-    {
-        var tenantId = Guid.TryParse(args.Value?.ToString(), out var parsedTenantId)
-            ? parsedTenantId
-            : (Guid?)null;
-
-        TenantSelectionService.SetTenant(tenantId);
-        selectedTenantId = TenantSelectionService.SelectedTenantId;
-
-        if (selectedTenantId.HasValue)
-        {
-            await JS.InvokeVoidAsync("localStorage.setItem", SelectedTenantStorageKey, selectedTenantId.Value.ToString());
-        }
-        else
-        {
-            await JS.InvokeVoidAsync("localStorage.removeItem", SelectedTenantStorageKey);
-        }
-
-        var targetUri = NavigationManager.GetUriWithQueryParameter("tenantId", selectedTenantId);
-        if (!string.Equals(targetUri, NavigationManager.Uri, StringComparison.OrdinalIgnoreCase))
-        {
-            NavigationManager.NavigateTo(targetUri, replace: true);
-        }
-    }
-
-    private void OnTenantChanged()
-    {
-        selectedTenantId = TenantSelectionService.SelectedTenantId;
-        _ = InvokeAsync(StateHasChanged);
-    }
+    private void OnTenantChanged() => _ = InvokeAsync(StateHasChanged);
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
-        ApplyTenantFromUri(e.Location);
         StateHasChanged();
     }
 
-    private void ApplyTenantFromUri(string uri)
+    private async Task PersistAsync(Guid? tenantId)
     {
-        var tenantId = TryGetTenantIdFromUri(uri);
-        if (tenantId.HasValue && TenantSelectionService.CanAccessTenant(tenantId.Value))
-        {
-            TenantSelectionService.SetTenant(tenantId.Value);
-            selectedTenantId = TenantSelectionService.SelectedTenantId;
-        }
-    }
-
-    private string BuildNavHref(string relativePath)
-    {
-        if (!selectedTenantId.HasValue)
-        {
-            return relativePath;
-        }
-
-        return string.IsNullOrWhiteSpace(relativePath)
-            ? $"?tenantId={selectedTenantId.Value}"
-            : QueryHelpers.AddQueryString(relativePath, "tenantId", selectedTenantId.Value.ToString());
-    }
-
-    private static Guid? TryGetTenantIdFromUri(string uri)
-    {
-        var absoluteUri = new Uri(uri);
-        var query = QueryHelpers.ParseQuery(absoluteUri.Query);
-        if (query.TryGetValue("tenantId", out var values) &&
-            Guid.TryParse(values.FirstOrDefault(), out var tenantId))
-        {
-            return tenantId;
-        }
-
-        return null;
+        if (tenantId.HasValue)
+            await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, tenantId.Value.ToString());
+        else
+            await JS.InvokeVoidAsync("localStorage.removeItem", StorageKey);
     }
 
     public void Dispose()
