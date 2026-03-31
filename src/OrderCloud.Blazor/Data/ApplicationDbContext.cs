@@ -17,6 +17,7 @@ namespace OrderCloud.Blazor.Data
         public DbSet<DeviceDTO> Devices { get; set; } = null!;
         public DbSet<OrderDTO> Orders { get; set; } = null!;
         public DbSet<ItemDTO> Items { get; set; } = null!;
+        public DbSet<CatalogItemDTO> CatalogItems { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -57,7 +58,17 @@ namespace OrderCloud.Blazor.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // Orders / Items mapping and relations
+            modelBuilder.Entity<CatalogItemDTO>(b =>
+            {
+                b.ToTable("CatalogItems");
+                b.HasKey(i => i.Id);
+                b.Property(i => i.Price).HasColumnType("decimal(18,2)");
+                b.HasOne(i => i.Tenant)
+                    .WithMany()
+                    .HasForeignKey(i => i.TenantId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
             modelBuilder.Entity<OrderDTO>(b =>
             {
                 b.ToTable("Orders");
