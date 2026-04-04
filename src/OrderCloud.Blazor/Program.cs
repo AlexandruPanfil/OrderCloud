@@ -55,6 +55,11 @@ builder.Services.AddHttpClient<ICatalogItemService, CatalogItemService>(client =
     client.BaseAddress = new Uri(apiBase);
 });
 
+builder.Services.AddHttpClient<IBillService, BillService>(client =>
+{
+    client.BaseAddress = new Uri(apiBase);
+});
+
 builder.Services.AddScoped<ITenantSelectionService, TenantSelectionService>();
 
 builder.Services.AddAuthentication(options =>

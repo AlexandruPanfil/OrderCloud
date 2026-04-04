@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="OrderCloud.Android.LoginPage"
+             Title="Login">
+    
+    <ScrollView>
+        <VerticalStackLayout
+            Padding="30,0"
+            Spacing="25"
+            VerticalOptions="Center">
+            
+            <Label
+                Text="Login"
+                Style="{StaticResource Headline}"
+                SemanticProperties.HeadingLevel="Level1"
+                HorizontalOptions="Center" />
+
+            <Label
+                Text="Sign in to your account"
+                Style="{StaticResource SubHeadline}"
+                SemanticProperties.HeadingLevel="Level2"
+                HorizontalOptions="Center" />
+
+            <Entry
+                x:Name="UsernameEntry"
+                Placeholder="Username"
+                Margin="0,20,0,0" />
+
+            <Entry
+                x:Name="PasswordEntry"
+                Placeholder="Password"
+                IsPassword="True" />
+
+            <Button
+                x:Name="LoginBtn"
+                Text="Login"
+                Clicked="OnLoginClicked"
+                HorizontalOptions="Fill"
+                Margin="0,20,0,0" />
+
+            <Button
+                x:Name="LogoutBtn"
+                Text="Logout"
+                Clicked="OnLogoutClicked"
+                HorizontalOptions="Fill"
+                IsVisible="False" />
+            
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

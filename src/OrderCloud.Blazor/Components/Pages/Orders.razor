@@ -3,6 +3,7 @@
 @using OrderCloud.Blazor.Models
 @using OrderCloud.Blazor.Services
 @inject IOrderService OrderService
+@inject ILocalUserService LocalUserService
 @inject ITenantSelectionService TenantSelectionService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -43,47 +44,38 @@
 
     @if (showPanel)
     {
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <strong>@(panelMode == PanelMode.Create ? "Create Order" : panelMode == PanelMode.Edit ? "Edit Order" : "View Order")</strong>
-                <div class="d-flex gap-2">
-                    @if (panelMode == PanelMode.View)
-                    {
-                        <button class="btn btn-outline-primary btn-sm" @onclick="SwitchToEdit">Edit</button>
-                    }
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="ClosePanel">Close</button>
+        <!-- Размытый фон позади формы -->
+        <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 1000;" @onclick="ClosePanel"></div>
+        
+        <!-- Контейнер формы поверх списка -->
+        <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; z-index: 1001; border-radius: var(--bs-border-radius);">
+            <div class="card shadow-lg m-0">
+                <div class="card-header d-flex justify-content-between align-items-center sticky-top bg-light border-bottom" style="z-index: 1020;">
+                    <strong>@(panelMode == PanelMode.Create ? "Create Order" : panelMode == PanelMode.Edit ? "Edit Order" : "View Order")</strong>
+                    <div class="d-flex gap-2">
+                        @if (panelMode == PanelMode.View && formOrder.Status != "Completed")
+                        {
+                            <button class="btn btn-outline-primary btn-sm" @onclick="SwitchToEdit">Edit</button>
+                        }
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="ClosePanel">Close</button>
+                    </div>
                 </div>
-            </div>
-            <div class="card-body">
-                @if (panelMode == PanelMode.View)
-                {
-                    <dl class="row mb-0">
-                        <dt class="col-sm-3">Status</dt>
-                        <dd class="col-sm-9">@formOrder.Status</dd>
-                        <dt class="col-sm-3">Tenant</dt>
-                        <dd class="col-sm-9">@ResolveTenantName(formOrder.TenantId)</dd>
-                        <dt class="col-sm-3">Total</dt>
-                        <dd class="col-sm-9">$@formOrder.Total.ToString("F2")</dd>
-                        <dt class="col-sm-3">Created</dt>
-                        <dd class="col-sm-9">@(formOrder.CreatedAt == default ? "—" : formOrder.CreatedAt.ToString("MMM dd, yyyy HH:mm"))</dd>
-                    </dl>
-                }
-                else
-                {
+                <div class="card-body">
                     <EditForm Model="formOrder" OnSubmit="HandleSubmitAsync">
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label">Status</label>
-                                <select class="form-select" @bind="formOrder.Status">
+                                <select class="form-select" @bind="formOrder.Status" disabled="@IsReadOnly">
                                     @foreach (var status in Statuses)
                                     {
                                         <option value="@status">@status</option>
                                     }
                                 </select>
                             </div>
+                            
                             <div class="col-md-6">
                                 <label class="form-label">Tenant</label>
-                                <select class="form-select" @bind="TenantIdStr">
+                                <select class="form-select" @bind="TenantIdStr" disabled="@IsReadOnly">
                                     <option value="">-- Select tenant --</option>
                                     @foreach (var tenant in tenants)
                                     {
@@ -91,7 +83,136 @@
                                     }
                                 </select>
                             </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Local User</label>
+                                <select class="form-select" @bind="LocalUserIdStr" disabled="@(IsReadOnly || formOrder.TenantId == Guid.Empty)">
+                                    <option value="">-- Select local user --</option>
+                                    @foreach (var localUser in AvailableLocalUsers)
+                                    {
+                                        <option value="@localUser.Id">@localUser.Name</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">Customer Name</label>
+                                <InputText class="form-control" @bind-Value="formCustomerName" disabled="@IsReadOnly" placeholder="Optional" />
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">Customer IDNO</label>
+                                <InputNumber class="form-control" @bind-Value="formCustomerIdNo" disabled="@IsReadOnly" placeholder="Optional" />
+                            </div>
+                            
+                            @if (panelMode != PanelMode.Create)
+                            {
+                                <div class="col-md-6">
+                                    <label class="form-label">Created At</label>
+                                    <div class="form-control bg-light">@(formOrder.CreatedAt == default ? "—" : formOrder.CreatedAt.ToString("MMM dd, yyyy HH:mm"))</div>
+                                </div>
+                            }
                         </div>
+
+                        <hr class="my-4" />
+                        
+                        <h5 class="mb-3">Order Items</h5>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-bordered align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Name</th>
+                                        <th style="width: 120px;">Price</th>
+                                        <th style="width: 100px;">Qty</th>
+                                        <th style="width: 120px;">TVA</th>
+                                        <th style="width: 120px;">Total</th>
+                                        @if (!IsReadOnly)
+                                        {
+                                            <th style="width: 50px;"></th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in formOrder.Items)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @if (IsReadOnly)
+                                                {
+                                                    @item.Name
+                                                }
+                                                else
+                                                {
+                                                    <InputText class="form-control form-control-sm" @bind-Value="item.Name" required />
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (IsReadOnly)
+                                                {
+                                                    @item.Price.ToString("F2")
+                                                }
+                                                else
+                                                {
+                                                    <InputNumber class="form-control form-control-sm" @bind-Value="item.Price" @bind-Value:after="RecalculateTotal" />
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (IsReadOnly)
+                                                {
+                                                    @item.Quantity
+                                                }
+                                                else
+                                                {
+                                                    <InputNumber class="form-control form-control-sm" @bind-Value="item.Quantity" @bind-Value:after="RecalculateTotal" />
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (IsReadOnly)
+                                                {
+                                                    @item.TVA
+                                                }
+                                                else
+                                                {
+                                                    <select class="form-select form-select-sm" @bind="item.TVA">
+                                                        <option value="0%">0%</option>
+                                                        <option value="8%">8%</option>
+                                                        <option value="12%">12%</option>
+                                                        <option value="20%">20%</option>
+                                                    </select>
+                                                }
+                                            </td>
+                                            <td>$@((item.Price * item.Quantity).ToString("F2"))</td>
+                                            @if (!IsReadOnly)
+                                            {
+                                                <td class="text-center">
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveItem(item)">
+                                                        <i class="bi bi-trash"></i> &times;
+                                                    </button>
+                                                </td>
+                                            }
+                                        </tr>
+                                    }
+                                    @if (!formOrder.Items.Any())
+                                    {
+                                        <tr>
+                                            <td colspan="@(IsReadOnly ? 5 : 6)" class="text-center text-muted py-3">No items added.</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="4" class="text-end fw-bold align-middle">Order Total:</td>
+                                        <td class="fw-bold fs-5">$@formOrder.Total.ToString("F2")</td>
+                                        @if (!IsReadOnly) { <td></td> }
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        @if (!IsReadOnly)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-primary mb-3" @onclick="AddItem">Add Item</button>
+                        }
 
                         @if (!string.IsNullOrWhiteSpace(formError))
                         {
@@ -101,15 +222,20 @@
                         <div class="d-flex justify-content-end gap-2 mt-3">
                             @if (panelMode == PanelMode.Edit)
                             {
-                                <button type="button" class="btn btn-danger" @onclick="() => DeleteFromPanel(formOrder.Id)">Delete</button>
+                                <button type="button" class="btn btn-danger" @onclick="() => DeleteFromPanel(formOrder.Id)">Delete Order</button>
                             }
-                            <button type="button" class="btn btn-secondary" @onclick="ClosePanel">Cancel</button>
-                            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
-                                @(panelMode == PanelMode.Create ? "Create" : "Save")
-                            </button>
+                            
+                            <button type="button" class="btn btn-secondary" @onclick="ClosePanel">Close</button>
+                            
+                            @if (!IsReadOnly)
+                            {
+                                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                    @(panelMode == PanelMode.Create ? "Create Order" : "Save Changes")
+                                </button>
+                            }
                         </div>
                     </EditForm>
-                }
+                </div>
             </div>
         </div>
     }
@@ -135,13 +261,20 @@
                         {
                             <tr>
                                 <td><code>@order.Id.ToString()[..8]</code></td>
-                                <td>@order.Status</td>
+                                <td>
+                                    <span class="badge @(order.Status == "Completed" ? "bg-success" : "bg-primary")">
+                                        @order.Status
+                                    </span>
+                                </td>
                                 <td>@ResolveTenantName(order.TenantId)</td>
                                 <td>$@order.Total.ToString("F2")</td>
                                 <td>@(order.CreatedAt == default ? "—" : order.CreatedAt.ToString("MMM dd, yyyy"))</td>
                                 <td class="text-end">
                                     <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ViewOrder(order)">View</button>
-                                    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(order)">Edit</button>
+                                    @if (order.Status != "Completed")
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(order)">Edit</button>
+                                    }
                                     <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(order.Id)">Delete</button>
                                 </td>
                             </tr>
@@ -166,6 +299,8 @@
 
     private readonly List<OrderDTO> orders = new();
     private List<TenantDTO> tenants = new();
+    private List<LocalUserDTO> localUsers = new();
+    
     private string searchTerm = string.Empty;
     private string statusFilter = string.Empty;
     private bool isLoading;
@@ -175,10 +310,35 @@
     private PanelMode panelMode;
     private OrderDTO formOrder = CreateEmptyOrder();
 
+    private string formCustomerName = string.Empty;
+    private decimal? formCustomerIdNo;
+
+    private bool IsReadOnly => panelMode == PanelMode.View || formOrder.Status == "Completed";
+
     private string TenantIdStr
     {
         get => formOrder.TenantId == Guid.Empty ? string.Empty : formOrder.TenantId.ToString();
-        set => formOrder.TenantId = Guid.TryParse(value, out var tenantId) ? tenantId : Guid.Empty;
+        set
+        {
+            formOrder.TenantId = Guid.TryParse(value, out var tenantId) ? tenantId : Guid.Empty;
+            if (formOrder.TenantId != Guid.Empty)
+            {
+                formOrder.LocalUserId = null;
+                formOrder.LocalUser = null;
+            }
+        }
+    }
+
+    private string LocalUserIdStr
+    {
+        get => formOrder.LocalUserId?.ToString() ?? string.Empty;
+        set
+        {
+            formOrder.LocalUserId = Guid.TryParse(value, out var localUserId) ? localUserId : null;
+            formOrder.LocalUser = formOrder.LocalUserId.HasValue
+                ? AvailableLocalUsers.FirstOrDefault(u => u.Id == formOrder.LocalUserId.Value)
+                : null;
+        }
     }
 
     private Guid? CurrentTenantId => TenantSelectionService.SelectedTenantId;
@@ -192,23 +352,36 @@
         .Where(order => string.IsNullOrWhiteSpace(statusFilter) || order.Status == statusFilter)
         .OrderByDescending(order => order.CreatedAt);
 
+    private IEnumerable<LocalUserDTO> AvailableLocalUsers =>
+        localUsers
+            .Where(u => u.TenantId == formOrder.TenantId)
+            .OrderBy(u => u.Name);
+
     protected override async Task OnInitializedAsync()
     {
         await TenantSelectionService.EnsureInitializedAsync();
         TenantSelectionService.Changed += OnTenantChanged;
         await LoadOrdersAsync();
-        LoadTenants();
     }
 
     private void OnTenantChanged()
     {
         LoadTenants();
+        
         if (showPanel && panelMode == PanelMode.Create)
         {
             formOrder.TenantId = CurrentTenantId ?? Guid.Empty;
+            formOrder.LocalUserId = null;
+            formOrder.LocalUser = null;
         }
 
-        _ = InvokeAsync(StateHasChanged);
+        _ = ReloadLocalUsersAndRefreshAsync();
+    }
+
+    private async Task ReloadLocalUsersAndRefreshAsync()
+    {
+        await LoadLocalUsersAsync();
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task LoadOrdersAsync()
@@ -220,6 +393,7 @@
         {
             await TenantSelectionService.RefreshAsync();
             LoadTenants();
+            await LoadLocalUsersAsync();
 
             var loadedOrders = await OrderService.GetAllAsync();
             orders.Clear();
@@ -239,12 +413,23 @@
 
     private void LoadTenants()
     {
-        tenants = TenantSelectionService.AvailableTenants.OrderBy(tenant => tenant.Name).ToList();
+        tenants = TenantSelectionService.AvailableTenants.OrderBy(t => t.Name).ToList();
+    }
+
+    private async Task LoadLocalUsersAsync()
+    {
+        var users = await LocalUserService.GetAllAsync();
+        localUsers = users
+            .Where(u => TenantSelectionService.CanAccessTenant(u.TenantId))
+            .OrderBy(u => u.Name)
+            .ToList();
     }
 
     private void StartCreate()
     {
         formOrder = CreateEmptyOrder(CurrentTenantId);
+        formCustomerName = string.Empty;
+        formCustomerIdNo = null;
         formError = null;
         panelMode = PanelMode.Create;
         showPanel = true;
@@ -253,6 +438,8 @@
     private void ViewOrder(OrderDTO order)
     {
         formOrder = Clone(order);
+        formCustomerName = order.Customer?.Name ?? string.Empty;
+        formCustomerIdNo = order.Customer?.IDNO;
         formError = null;
         panelMode = PanelMode.View;
         showPanel = true;
@@ -260,7 +447,15 @@
 
     private void StartEdit(OrderDTO order)
     {
+        if (order.Status == "Completed")
+        {
+            ViewOrder(order);
+            return;
+        }
+        
         formOrder = Clone(order);
+        formCustomerName = order.Customer?.Name ?? string.Empty;
+        formCustomerIdNo = order.Customer?.IDNO;
         formError = null;
         panelMode = PanelMode.Edit;
         showPanel = true;
@@ -268,6 +463,7 @@
 
     private void SwitchToEdit()
     {
+        if (formOrder.Status == "Completed") return;
         panelMode = PanelMode.Edit;
         formError = null;
     }
@@ -278,10 +474,47 @@
         formError = null;
         isSubmitting = false;
     }
+    
+    private void AddItem()
+    {
+        if (IsReadOnly) return;
+        formOrder.Items ??= new List<ItemDTO>();
+        formOrder.Items.Add(new ItemDTO 
+        { 
+            Id = Guid.NewGuid(), 
+            Name = "New Item", 
+            Quantity = 1, 
+            Price = 0, 
+            TVA = "0%" 
+        });
+        RecalculateTotal();
+    }
+
+    private void RemoveItem(ItemDTO item)
+    {
+        if (IsReadOnly) return;
+        formOrder.Items?.Remove(item);
+        RecalculateTotal();
+    }
+
+    private void RecalculateTotal()
+    {
+        formOrder.Total = 0;
+        if (formOrder.Items == null) return;
+        
+        foreach (var item in formOrder.Items)
+        {
+            item.Total = item.Price * item.Quantity;
+            formOrder.Total += item.Total;
+        }
+    }
 
     private async Task HandleSubmitAsync()
     {
+        if (IsReadOnly) return;
+
         formError = null;
+        RecalculateTotal();
 
         if (string.IsNullOrWhiteSpace(formOrder.Status))
         {
@@ -295,16 +528,45 @@
             return;
         }
 
-        if (!TenantSelectionService.CanAccessTenant(formOrder.TenantId))
+        var selectedTenant = tenants.FirstOrDefault(t => t.Id == formOrder.TenantId);
+        if (selectedTenant == null)
         {
-            formError = "You can only manage orders for your assigned tenant.";
+            formError = "Selected tenant is not available.";
             return;
         }
 
-        formOrder.Tenant = tenants.FirstOrDefault(tenant => tenant.Id == formOrder.TenantId);
-        if (formOrder.Tenant == null)
+        if (!formOrder.LocalUserId.HasValue)
         {
-            formError = "Selected tenant is not available.";
+            formError = "Local user is required.";
+            return;
+        }
+
+        var selectedLocalUser = localUsers.FirstOrDefault(u => u.Id == formOrder.LocalUserId.Value);
+        if (selectedLocalUser == null || selectedLocalUser.TenantId != formOrder.TenantId)
+        {
+            formError = "Selected local user is not available for the chosen tenant.";
+            return;
+        }
+
+        CustomerDTO? customer = null;
+        if (!string.IsNullOrWhiteSpace(formCustomerName))
+        {
+            customer = new CustomerDTO
+            {
+                Id = Guid.Empty,
+                Name = formCustomerName.Trim(),
+                IDNO = formCustomerIdNo ?? 0
+            };
+        }
+
+        formOrder.Tenant = selectedTenant;
+        formOrder.LocalUser = selectedLocalUser;
+        formOrder.Customer = customer;
+        formOrder.CustomerId = null;
+
+        if (!TenantSelectionService.CanAccessTenant(formOrder.TenantId))
+        {
+            formError = "You can only manage orders for your assigned tenant.";
             return;
         }
 
@@ -379,7 +641,7 @@
     }
 
     private string ResolveTenantName(Guid tenantId) =>
-        tenants.FirstOrDefault(tenant => tenant.Id == tenantId)?.Name ?? "—";
+        tenants.FirstOrDefault(t => t.Id == tenantId)?.Name ?? "—";
 
     private static OrderDTO Clone(OrderDTO order) => new()
     {

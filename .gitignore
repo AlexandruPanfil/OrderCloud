@@ -365,3 +365,6 @@ FodyWeavers.xsd
 # Ignore Codex map
 .codex-build/
 .temp-build/
+
+# Ignore .idea
+src/.idea/

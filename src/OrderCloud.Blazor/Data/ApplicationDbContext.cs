@@ -18,6 +18,8 @@ namespace OrderCloud.Blazor.Data
         public DbSet<OrderDTO> Orders { get; set; } = null!;
         public DbSet<ItemDTO> Items { get; set; } = null!;
         public DbSet<CatalogItemDTO> CatalogItems { get; set; } = null!;
+        public DbSet<BillDTO> Bills { get; set; } = null!;
+        public DbSet<BillItemDTO> BillItems { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -96,6 +98,33 @@ namespace OrderCloud.Blazor.Data
             modelBuilder.Entity<ItemDTO>(b =>
             {
                 b.ToTable("ItemDTO");
+                b.HasKey(i => i.Id);
+                b.Property(i => i.Price).HasColumnType("decimal(18,2)");
+                b.Property(i => i.Quantity).HasColumnType("decimal(18,2)");
+                b.Property(i => i.Total).HasColumnType("decimal(18,2)");
+            });
+
+            modelBuilder.Entity<BillDTO>(b =>
+            {
+                b.ToTable("Bills");
+                b.HasKey(bill => bill.Id);
+                b.Property(bill => bill.PaymentMethod).IsRequired();
+                b.Property(bill => bill.Subtotal).HasColumnType("decimal(18,2)");
+                b.Property(bill => bill.Total).HasColumnType("decimal(18,2)");
+                b.HasOne(bill => bill.Tenant)
+                    .WithMany()
+                    .HasForeignKey(bill => bill.TenantId)
+                    .OnDelete(DeleteBehavior.SetNull)
+                    .IsRequired(false);
+                b.HasMany(bill => bill.Items)
+                    .WithOne(i => i.Bill)
+                    .HasForeignKey(i => i.BillId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<BillItemDTO>(b =>
+            {
+                b.ToTable("BillItems");
                 b.HasKey(i => i.Id);
                 b.Property(i => i.Price).HasColumnType("decimal(18,2)");
                 b.Property(i => i.Quantity).HasColumnType("decimal(18,2)");

@@ -26,6 +26,17 @@ namespace OrderCloud.API.Controllers
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
+            foreach (var order in orders)
+            {
+                if (order.Items != null)
+                {
+                    foreach (var item in order.Items)
+                    {
+                        item.Order = null;
+                    }
+                }
+            }
+
             return Ok(orders);
         }
 
@@ -34,9 +45,23 @@ namespace OrderCloud.API.Controllers
         {
             var order = await _db.Orders
                 .Include(o => o.Items)
+                .Include(o => o.Customer)
+                .Include(o => o.Tenant)
+                .Include(o => o.LocalUser)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
 
             if (order == null) return NotFound();
+
+            // Для избежания циклов сериализации отключаем обратные ссылки у дочерних объектов перед отправкой ответа.
+            if (order.Items != null)
+            {
+                foreach (var item in order.Items)
+                {
+                    item.Order = null;
+                }
+            }
+
             return Ok(order);
         }
 
@@ -45,19 +70,64 @@ namespace OrderCloud.API.Controllers
         {
             if (order == null) return BadRequest();
             if (order.Id == Guid.Empty) order.Id = Guid.NewGuid();
-            if (!await PrepareOrderForSaveAsync(order, cancellationToken))
+
+            // Validate that we have proper Tenant and LocalUser
+            if (order.Tenant == null || order.Tenant.Id == Guid.Empty)
             {
-                return ValidationProblem(ModelState);
+                return BadRequest("Tenant is required.");
+            }
+
+            if (order.LocalUser == null || order.LocalUser.Id == Guid.Empty)
+            {
+                return BadRequest("Local User is required.");
+            }
+
+            // Set keys
+            order.TenantId = order.Tenant.Id;
+            order.LocalUserId = order.LocalUser.Id;
+
+            // Handle Customer creation if provided
+            if (order.Customer != null && !string.IsNullOrWhiteSpace(order.Customer.Name))
+            {
+                if (order.Customer.Id == Guid.Empty)
+                {
+                    order.Customer.Id = Guid.NewGuid();
+                }
+
+                // Attach customer to EF context if it's new
+                var existingCustomer = await _db.Customers.AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == order.Customer.Id, cancellationToken);
+                
+                if (existingCustomer == null)
+                {
+                    _db.Customers.Add(order.Customer);
+                }
+
+                order.CustomerId = order.Customer.Id;
+            }
+            else
+            {
+                // FALLBACK ONLY: If DB has NOT NULL on CustomerId, we must provide one. 
+                // We create a dummy "Walk-in Customer"
+                var defaultCustomer = await _db.Customers.FirstOrDefaultAsync(c => c.Name == "Walk-in", cancellationToken);
+                if (defaultCustomer == null)
+                {
+                    defaultCustomer = new CustomerDTO { Id = Guid.NewGuid(), Name = "Walk-in" };
+                    _db.Customers.Add(defaultCustomer);
+                }
+
+                order.Customer = null;
+                order.CustomerId = defaultCustomer.Id;
             }
 
             order.CreatedAt = DateTime.UtcNow;
             order.UpdatedAt = order.CreatedAt;
             order.Items ??= new List<ItemDTO>();
 
-            // Отсоединяем связанные сущности
-            order.Tenant = null;
-            order.Customer = null;
+            // Detach objects that should not be re-created
+            order.Tenant = null!;
             order.LocalUser = null;
+            order.Customer = null;
 
             foreach (var item in order.Items)
             {
@@ -69,8 +139,6 @@ namespace OrderCloud.API.Controllers
 
             order.Total = order.Items.Sum(i => i.Total);
 
-            // Если связанных объектов не существует в БД, EF выдаст FK constraint ошибку.
-            // Поэтому перед сохранением заказа убедимся, что мы их НЕ трекаем.
             _db.Orders.Add(order);
             
             try
@@ -83,7 +151,26 @@ namespace OrderCloud.API.Controllers
                 return Problem(detail: ex.InnerException?.Message ?? ex.Message, statusCode: 500);
             }
 
-            return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
+            // Перед возвратом результата важно занулить ссылки на заказ внутри items,
+            // если savechanges модифицировал объекты и восстановил связи.
+            foreach (var item in order.Items)
+            {
+                item.Order = null;
+            }
+
+            // Fetch the fully constructed order without navigation properties holding cycles
+            return CreatedAtAction(nameof(GetById), new { id = order.Id }, new OrderDTO
+            {
+                Id = order.Id,
+                Status = order.Status,
+                Total = order.Total,
+                CreatedAt = order.CreatedAt,
+                UpdatedAt = order.UpdatedAt,
+                TenantId = order.TenantId,
+                LocalUserId = order.LocalUserId,
+                CustomerId = order.CustomerId,
+                Items = order.Items
+            });
         }
 
         [HttpPut("{id:guid}")]
@@ -130,6 +217,11 @@ namespace OrderCloud.API.Controllers
             {
                 _logger.LogError(ex, "Error updating order");
                 return Problem(detail: ex.InnerException?.Message ?? ex.Message, statusCode: 500);
+            }
+
+            foreach (var item in existing.Items)
+            {
+                item.Order = null;
             }
 
             return Ok(existing);
@@ -269,11 +361,11 @@ namespace OrderCloud.API.Controllers
                 }
             }
 
-            if (order.Customer?.Id != Guid.Empty)
+            if (order.Customer != null && order.Customer.Id != Guid.Empty)
             {
                 var existingFromPayload = await _db.Customers
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.Id == order.Customer!.Id, cancellationToken);
+                    .FirstOrDefaultAsync(c => c.Id == order.Customer.Id, cancellationToken);
 
                 if (existingFromPayload != null)
                 {
@@ -282,8 +374,9 @@ namespace OrderCloud.API.Controllers
                 }
             }
 
-            if (order.Customer == null)
+            if (order.Customer == null || string.IsNullOrWhiteSpace(order.Customer.Name))
             {
+                order.Customer = null;
                 order.CustomerId = null;
                 return;
             }

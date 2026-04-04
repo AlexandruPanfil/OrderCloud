@@ -4,11 +4,34 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:OrderCloud.Android"
-    Title="OrderCloud.Android">
+    Title="OrderCloud">
 
-    <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+    <FlyoutItem Title="Main" Icon="home.png">
+        <ShellContent
+            Title="Home"
+            ContentTemplate="{DataTemplate local:MainPage}"
+            Route="MainPage" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Items" Icon="items.png">
+        <ShellContent
+            Title="Items"
+            ContentTemplate="{DataTemplate local:ItemsPage}"
+            Route="ItemsPage" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Orders" Icon="orders.png">
+        <ShellContent
+            Title="Orders"
+            ContentTemplate="{DataTemplate local:OrdersPage}"
+            Route="OrdersPage" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Account" Icon="account.png">
+        <ShellContent
+            Title="Login"
+            ContentTemplate="{DataTemplate local:LoginPage}"
+            Route="LoginPage" />
+    </FlyoutItem>
 
 </Shell>

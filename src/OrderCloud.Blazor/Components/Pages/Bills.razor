@@ -1,0 +1,283 @@
+@page "/bills"
+@using OrderCloud.Blazor.Models
+@using OrderCloud.Blazor.Services
+@inject IBillService BillService
+@inject ILogger<Bills> Logger
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Bills</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col">
+            <h1>Bills & Receipts</h1>
+        </div>
+        <div class="col-auto">
+            <button type="button" class="btn btn-primary" @onclick="OnRefreshClick" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    <span>Loading...</span>
+                }
+                else
+                {
+                    <span>🔄 Refresh</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading bills...</p>
+        </div>
+    }
+    else if (errorMessage != null)
+    {
+        <div class="alert alert-danger">
+            <strong>Error:</strong> @errorMessage
+        </div>
+    }
+    else
+    {
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Bills</h5>
+                        <h2>@bills.Count</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Revenue</h5>
+                        <h2>$@bills.Sum(b => b.Total).ToString("F2")</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-info">
+                    <div class="card-body">
+                        <h5 class="card-title">Cash Payments</h5>
+                        <h2>@bills.Count(b => b.PaymentMethod == "Cash")</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-warning">
+                    <div class="card-body">
+                        <h5 class="card-title">Card Payments</h5>
+                        <h2>@bills.Count(b => b.PaymentMethod == "Card")</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bills Table -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">All Bills (@bills.Count)</h5>
+            </div>
+            <div class="card-body">
+                @if (bills.Count == 0)
+                {
+                    <p class="text-muted">No bills found.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Bill ID</th>
+                                    <th>Date</th>
+                                    <th>Payment Method</th>
+                                    <th>Items</th>
+                                    <th>Total</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var bill in bills.OrderByDescending(b => b.BillDate))
+                                {
+                                    <tr>
+                                        <td>
+                                            <small class="font-monospace">@bill.Id.ToString("N").Substring(0, 8)...</small>
+                                        </td>
+                                        <td>@bill.BillDate.ToString("MMM dd, yyyy HH:mm")</td>
+                                        <td>
+                                            @if (bill.PaymentMethod == "Cash")
+                                            {
+                                                <span class="badge bg-success">💵 Cash</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-primary">💳 Card</span>
+                                            }
+                                        </td>
+                                        <td>@bill.Items.Count item(s)</td>
+                                        <td><strong>$@bill.Total.ToString("F2")</strong></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-info" @onclick="() => ViewBillDetails(bill)">
+                                                <i class="bi bi-eye"></i> View
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteBill(bill.Id)">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Bill Details Modal -->
+@if (selectedBill != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Bill Details</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p><strong>Bill ID:</strong> @selectedBill.Id</p>
+                            <p><strong>Date:</strong> @selectedBill.BillDate.ToString("MMM dd, yyyy HH:mm:ss")</p>
+                            <p><strong>Payment Method:</strong> @selectedBill.PaymentMethod</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Subtotal:</strong> $@selectedBill.Subtotal.ToString("F2")</p>
+                            <p><strong>Total:</strong> $@selectedBill.Total.ToString("F2")</p>
+                        </div>
+                    </div>
+
+                    <h6>Items:</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Price</th>
+                                <th>Qty</th>
+                                <th>TVA</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in selectedBill.Items)
+                            {
+                                <tr>
+                                    <td>@item.Name</td>
+                                    <td>$@item.Price.ToString("F2")</td>
+                                    <td>@item.Quantity</td>
+                                    <td>@item.TVA</td>
+                                    <td>$@item.Total.ToString("F2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @if (!string.IsNullOrWhiteSpace(selectedBill.ReceiptContent))
+                    {
+                        <hr />
+                        <h6>Receipt:</h6>
+                        <pre class="border p-3" style="background-color: #f8f9fa;">@selectedBill.ReceiptContent</pre>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<BillDTO> bills = new();
+    private BillDTO? selectedBill = null;
+    private bool isLoading = false;
+    private string? errorMessage = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBills();
+    }
+
+    private async Task LoadBills()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+        
+        try
+        {
+            bills = await BillService.GetAllBillsAsync();
+            Logger.LogInformation("Loaded {Count} bills", bills.Count);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load bills: {ex.Message}";
+            Logger.LogError(ex, "Error loading bills");
+            bills = new List<BillDTO>();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnRefreshClick()
+    {
+        Logger.LogInformation("Refresh button clicked");
+        await LoadBills();
+    }
+
+    private void ViewBillDetails(BillDTO bill)
+    {
+        selectedBill = bill;
+    }
+
+    private void CloseModal()
+    {
+        selectedBill = null;
+    }
+
+    private async Task DeleteBill(Guid id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this bill?"))
+        {
+            try
+            {
+                var success = await BillService.DeleteBillAsync(id);
+                if (success)
+                {
+                    await LoadBills();
+                }
+                else
+                {
+                    errorMessage = "Failed to delete bill";
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error deleting bill: {ex.Message}";
+                Logger.LogError(ex, "Error deleting bill");
+            }
+        }
+    }
+}
