@@ -287,7 +287,12 @@
             }
         }
 
-        _ = InvokeAsync(StateHasChanged);
+        // Reload data when tenant changes
+        _ = InvokeAsync(async () =>
+        {
+            await LoadDataAsync();
+            StateHasChanged();
+        });
     }
 
     private async Task LoadDataAsync()

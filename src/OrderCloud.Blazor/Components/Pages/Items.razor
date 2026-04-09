@@ -429,7 +429,15 @@
         TenantId = Guid.Empty
     };
 
-    private void OnTenantChanged() => _ = InvokeAsync(StateHasChanged);
+    private void OnTenantChanged()
+    {
+        // Reload data when tenant selection changes
+        _ = InvokeAsync(async () =>
+        {
+            await LoadDataAsync();
+            StateHasChanged();
+        });
+    }
 
     public void Dispose()
     {

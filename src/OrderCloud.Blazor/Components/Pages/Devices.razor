@@ -441,7 +441,12 @@
 
     private void OnTenantChanged()
     {
-        _ = InvokeAsync(StateHasChanged);
+        // Reload data when tenant selection changes
+        _ = InvokeAsync(async () =>
+        {
+            await LoadDataAsync();
+            StateHasChanged();
+        });
     }
 
     public void Dispose()

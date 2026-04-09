@@ -20,7 +20,7 @@ namespace OrderCloud.Blazor.Services
         private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
         private const string BasePath = "/api/tenants";
 
-        public TenantService(HttpClient http)
+        public TenantService(HttpClient http)   
         {
             _http = http ?? throw new ArgumentNullException(nameof(http));
         }

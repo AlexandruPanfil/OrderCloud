@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.JSInterop;
 using OrderCloud.Blazor.Models;
 
 namespace OrderCloud.Blazor.Services
@@ -14,22 +15,30 @@ namespace OrderCloud.Blazor.Services
         Task EnsureInitializedAsync(CancellationToken cancellationToken = default);
         Task RefreshAsync(CancellationToken cancellationToken = default);
         bool CanAccessTenant(Guid tenantId);
-        void SetTenant(Guid? tenantId);
+        Task SetTenantAsync(Guid? tenantId);
+        Task<Guid?> GetStoredTenantIdAsync();
+        Task PersistTenantIdAsync(Guid? tenantId);
     }
 
     public sealed class TenantSelectionService : ITenantSelectionService
     {
+        private const string StorageKey = "ordercloud.selected-tenant-id";
+        
         private readonly ITenantService tenantService;
         private readonly AuthenticationStateProvider authenticationStateProvider;
+        private readonly IJSRuntime jsRuntime;
         private List<TenantDTO> availableTenants = new();
         private HashSet<Guid> availableTenantIds = new();
+        private bool hasRestoredFromStorage;
 
         public TenantSelectionService(
             ITenantService tenantService,
-            AuthenticationStateProvider authenticationStateProvider)
+            AuthenticationStateProvider authenticationStateProvider,
+            IJSRuntime jsRuntime)
         {
             this.tenantService = tenantService ?? throw new ArgumentNullException(nameof(tenantService));
             this.authenticationStateProvider = authenticationStateProvider ?? throw new ArgumentNullException(nameof(authenticationStateProvider));
+            this.jsRuntime = jsRuntime ?? throw new ArgumentNullException(nameof(jsRuntime));
         }
 
         public Guid? SelectedTenantId { get; private set; }
@@ -66,7 +75,19 @@ namespace OrderCloud.Blazor.Services
                     .ToList();
 
             var filteredTenantIds = filteredTenants.Select(tenant => tenant.Id).ToHashSet();
-            var nextSelectedTenantId = NormalizeTenantId(SelectedTenantId, filteredTenants);
+            
+            // Restore from localStorage on first initialization
+            Guid? nextSelectedTenantId;
+            if (!hasRestoredFromStorage && !IsInitialized)
+            {
+                hasRestoredFromStorage = true;
+                var storedId = await GetStoredTenantIdAsync();
+                nextSelectedTenantId = NormalizeTenantId(storedId, filteredTenants);
+            }
+            else
+            {
+                nextSelectedTenantId = NormalizeTenantId(SelectedTenantId, filteredTenants);
+            }
 
             var hasChanged = !IsInitialized
                 || !string.Equals(CurrentUserId, userId, StringComparison.OrdinalIgnoreCase)
@@ -88,16 +109,85 @@ namespace OrderCloud.Blazor.Services
 
         public bool CanAccessTenant(Guid tenantId) => availableTenantIds.Contains(tenantId);
 
-        public void SetTenant(Guid? tenantId)
+        public async Task SetTenantAsync(Guid? tenantId)
         {
             var normalizedTenantId = NormalizeTenantId(tenantId, availableTenants);
+            
+            Console.WriteLine($"SetTenantAsync called: old={SelectedTenantId}, new={normalizedTenantId}");
+            
             if (SelectedTenantId == normalizedTenantId)
             {
+                Console.WriteLine("Tenant ID unchanged, skipping");
                 return;
             }
 
             SelectedTenantId = normalizedTenantId;
+            
+            // Persist to localStorage
+            try
+            {
+                Console.WriteLine($"Attempting to persist tenant {normalizedTenantId} to localStorage with key '{StorageKey}'");
+                await PersistTenantIdAsync(normalizedTenantId);
+                Console.WriteLine("Successfully persisted to localStorage");
+            }
+            catch (Exception ex)
+            {
+                // Log but don't fail if persistence fails
+                Console.WriteLine($"ERROR: Failed to persist tenant selection: {ex.GetType().Name}: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+            
             Changed?.Invoke();
+        }
+
+        public async Task<Guid?> GetStoredTenantIdAsync()
+        {
+            try
+            {
+                Console.WriteLine($"Getting stored tenant from localStorage with key '{StorageKey}'");
+                var stored = await jsRuntime.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+                Console.WriteLine($"Retrieved from localStorage: '{stored}'");
+                
+                if (Guid.TryParse(stored, out var storedId))
+                {
+                    Console.WriteLine($"Parsed tenant ID: {storedId}");
+                    return storedId;
+                }
+                
+                Console.WriteLine("No valid tenant ID found in localStorage");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR getting from localStorage: {ex.GetType().Name}: {ex.Message}");
+            }
+            
+            return null;
+        }
+
+        public async Task PersistTenantIdAsync(Guid? tenantId)
+        {
+            try
+            {
+                if (tenantId.HasValue)
+                {
+                    var tenantIdStr = tenantId.Value.ToString();
+                    Console.WriteLine($"Calling localStorage.setItem('{StorageKey}', '{tenantIdStr}')");
+                    await jsRuntime.InvokeVoidAsync("localStorage.setItem", StorageKey, tenantIdStr);
+                    Console.WriteLine("localStorage.setItem completed");
+                }
+                else
+                {
+                    Console.WriteLine($"Calling localStorage.removeItem('{StorageKey}')");
+                    await jsRuntime.InvokeVoidAsync("localStorage.removeItem", StorageKey);
+                    Console.WriteLine("localStorage.removeItem completed");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ERROR in PersistTenantIdAsync: {ex.GetType().Name}: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                throw; // Re-throw to see the error in the parent catch
+            }
         }
 
         private bool HaveTenantDetailsChanged(IReadOnlyList<TenantDTO> nextTenants)

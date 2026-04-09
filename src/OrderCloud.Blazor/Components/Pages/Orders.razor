@@ -375,7 +375,14 @@
             formOrder.LocalUser = null;
         }
 
-        _ = ReloadLocalUsersAndRefreshAsync();
+        _ = ReloadAllDataAsync();
+    }
+
+    private async Task ReloadAllDataAsync()
+    {
+        await LoadLocalUsersAsync();
+        await LoadOrdersAsync();
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task ReloadLocalUsersAndRefreshAsync()

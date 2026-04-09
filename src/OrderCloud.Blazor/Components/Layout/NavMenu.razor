@@ -1,6 +1,7 @@
 @implements IDisposable
 @using OrderCloud.Blazor.Models
 @using OrderCloud.Blazor.Services
+@using Microsoft.JSInterop
 
 @inject NavigationManager NavigationManager
 @inject ITenantSelectionService TenantSelectionService
@@ -18,10 +19,11 @@
     <nav class="nav flex-column">
         <div class="nav-item px-3" @onclick:stopPropagation="true">
             <div class="text-white-50 small mb-1">Tenant filter</div>
-            @* @bind owns both the rendered value AND the change event.
-               Using value="@..." + @onchange causes Blazor to lose sync on re-render. *@
             <select class="form-select form-select-sm"
-                    @bind="SelectedTenantIdBound"
+                    id="tenant-selector"
+                    value="@SelectedTenantIdStr"
+                    @onchange="OnTenantSelectionChanged"
+                    @onchange:stopPropagation="true"
                     disabled="@(!VisibleTenants.Any())"
                     @onclick:stopPropagation="true">
                 <option value="">@(VisibleTenants.Any() ? "All tenants" : "No tenants assigned")</option>
@@ -30,6 +32,7 @@
                     <option value="@tenant.Id">@tenant.Name</option>
                 }
             </select>
+            <div class="text-white-50 small mt-1">Selected: @(TenantSelectionService.SelectedTenantId?.ToString() ?? "None")</div>
         </div>
 
         <div class="nav-item px-3">
@@ -120,53 +123,106 @@
 </div>
 
 @code {
-    private const string StorageKey = "ordercloud.selected-tenant-id";
-
     private string? currentUrl;
-    private bool selectionRestored;
+    private DotNetObjectReference<NavMenu>? dotNetHelper;
 
     private IReadOnlyList<TenantDTO> VisibleTenants => TenantSelectionService.AvailableTenants;
 
-    // @bind needs a get/set property.
-    // getter  → what Blazor renders in the <select> on every render cycle
-    // setter  → called when the user picks a new option (replaces the old @onchange handler)
-    private string SelectedTenantIdBound
+    // Property for getting the current value for <select>
+    private string SelectedTenantIdStr => TenantSelectionService.SelectedTenantId?.ToString() ?? string.Empty;
+
+    // Handle tenant selection change
+    private async Task OnTenantSelectionChanged(ChangeEventArgs e)
     {
-        get => TenantSelectionService.SelectedTenantId?.ToString() ?? string.Empty;
-        set
-        {
-            var tenantId = Guid.TryParse(value, out var id) ? id : (Guid?)null;
-            TenantSelectionService.SetTenant(tenantId);
-            _ = PersistAsync(tenantId);
-        }
+        var value = e.Value?.ToString() ?? string.Empty;
+        Console.WriteLine($"NavMenu: Tenant selection changed to '{value}'");
+        
+        var tenantId = Guid.TryParse(value, out var id) ? id : (Guid?)null;
+        Console.WriteLine($"NavMenu: Parsed tenant ID: {tenantId}");
+        
+        await TenantSelectionService.SetTenantAsync(tenantId);
+        Console.WriteLine("NavMenu: SetTenantAsync completed");
+        
+        StateHasChanged();
     }
 
     protected override async Task OnInitializedAsync()
     {
+        Console.WriteLine("NavMenu: OnInitializedAsync called");
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
         TenantSelectionService.Changed += OnTenantChanged;
         await TenantSelectionService.EnsureInitializedAsync();
+        Console.WriteLine($"NavMenu: Initialized with {VisibleTenants.Count} tenants, selected: {SelectedTenantIdStr}");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || selectionRestored)
-            return;
-
-        selectionRestored = true;
-
-        var stored = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
-        if (Guid.TryParse(stored, out var storedId) && TenantSelectionService.CanAccessTenant(storedId))
-            TenantSelectionService.SetTenant(storedId);
-        else if (!TenantSelectionService.SelectedTenantId.HasValue && VisibleTenants.Any())
-            TenantSelectionService.SetTenant(VisibleTenants[0].Id);
-
-        await PersistAsync(TenantSelectionService.SelectedTenantId);
-        StateHasChanged();
+        if (firstRender)
+        {
+            Console.WriteLine("NavMenu: OnAfterRenderAsync (first render)");
+            try
+            {
+                dotNetHelper = DotNetObjectReference.Create(this);
+                
+                // Simple test to see if JS interop works
+                await JS.InvokeVoidAsync("console.log", "NavMenu: Testing JS interop from Blazor");
+                
+                // Setup the event listener
+                await JS.InvokeVoidAsync("eval", @"
+                    (function(dotNetHelper) {
+                        console.log('JS: setupTenantSelector function called');
+                        const selector = document.getElementById('tenant-selector');
+                        console.log('JS: Selector element:', selector);
+                        
+                        if (selector) {
+                            console.log('JS: Adding change event listener to selector');
+                            selector.addEventListener('change', async function(e) {
+                                console.log('JS: Change event fired! New value:', e.target.value);
+                                try {
+                                    console.log('JS: Calling .NET method OnTenantChangedFromJS');
+                                    await dotNetHelper.invokeMethodAsync('OnTenantChangedFromJS', e.target.value);
+                                    console.log('JS: .NET method call completed');
+                                } catch (error) {
+                                    console.error('JS: Error calling .NET method:', error);
+                                }
+                            });
+                            console.log('JS: Event listener added successfully');
+                        } else {
+                            console.error('JS: Tenant selector element NOT FOUND!');
+                        }
+                    })(arguments[0]);
+                ", dotNetHelper);
+                
+                Console.WriteLine("NavMenu: JavaScript setup complete");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"NavMenu: ERROR setting up JS: {ex.GetType().Name}: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            }
+        }
     }
 
-    private void OnTenantChanged() => _ = InvokeAsync(StateHasChanged);
+    [JSInvokable]
+    public async Task OnTenantChangedFromJS(string value)
+    {
+        Console.WriteLine($"NavMenu: OnTenantChangedFromJS called with value '{value}'");
+        
+        var tenantId = Guid.TryParse(value, out var id) ? id : (Guid?)null;
+        Console.WriteLine($"NavMenu: Parsed tenant ID from JS: {tenantId}");
+        
+        await TenantSelectionService.SetTenantAsync(tenantId);
+        Console.WriteLine("NavMenu: SetTenantAsync completed from JS");
+        
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnTenantChanged()
+    {
+        Console.WriteLine("NavMenu: OnTenantChanged event received");
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
@@ -174,17 +230,10 @@
         StateHasChanged();
     }
 
-    private async Task PersistAsync(Guid? tenantId)
-    {
-        if (tenantId.HasValue)
-            await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, tenantId.Value.ToString());
-        else
-            await JS.InvokeVoidAsync("localStorage.removeItem", StorageKey);
-    }
-
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
         TenantSelectionService.Changed -= OnTenantChanged;
+        dotNetHelper?.Dispose();
     }
 }
