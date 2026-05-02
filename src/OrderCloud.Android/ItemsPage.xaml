@@ -2,91 +2,301 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OrderCloud.Android.ItemsPage"
-             Title="Items">
-    
-    <VerticalStackLayout Spacing="10" Padding="15">
-        
-        <HorizontalStackLayout Spacing="10">
-            <Button
-                x:Name="AddItemBtn"
-                Text="+ Add Item"
-                Clicked="OnAddItemClicked"
-                BackgroundColor="#4CAF50"
-                TextColor="White"
-                HorizontalOptions="FillAndExpand" />
+             BackgroundColor="#FAFAFA"
+             NavigationPage.HasNavigationBar="False">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" 
+          Padding="16" 
+          RowSpacing="12">
+
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="8,0">
+            <VerticalStackLayout Grid.Column="0" Spacing="2">
+                <Label Text="New Sale" 
+                       FontSize="22" 
+                       FontAttributes="Bold"
+                       TextColor="#1A1A1A"/>
+                <Label x:Name="StatusLabel"
+                       Text="Select items to sell" 
+                       FontSize="12" 
+                       TextColor="#8C8C8C"/>
+            </VerticalStackLayout>
             
-            <Button
-                x:Name="RefreshBtn"
-                Text="🔄 Refresh"
-                Clicked="OnRefreshClicked"
-                HorizontalOptions="FillAndExpand" />
-        </HorizontalStackLayout>
+            <Button Grid.Column="1"
+                    x:Name="RefreshBtn"
+                    Text="↻"
+                    Clicked="OnRefreshClicked"
+                    BackgroundColor="Transparent"
+                    TextColor="#666666"
+                    WidthRequest="40"
+                    HeightRequest="40"
+                    CornerRadius="20"
+                    FontSize="18"/>
+        </Grid>
 
-        <Label
-            x:Name="StatusLabel"
-            Text="Loading items..."
-            FontSize="14"
-            Margin="0,10,0,0" />
+        <!-- Main Content: Two Columns -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="16">
 
-        <CollectionView x:Name="ItemsCollectionView">
-            <CollectionView.ItemsLayout>
-                <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
-            </CollectionView.ItemsLayout>
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Frame
-                        BorderColor="#CCCCCC"
-                        CornerRadius="10"
-                        Padding="15"
-                        Margin="0,5">
-                        
-                        <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
-                            <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="5">
-                                <Label
-                                    Text="{Binding Name}"
-                                    FontSize="16"
-                                    FontAttributes="Bold" />
-                                
-                                <HorizontalStackLayout Spacing="20">
-                                    <Label Text="{Binding Price, StringFormat='Price: ${0:F2}'}" FontSize="14" />
-                                    <Label Text="{Binding TVA, StringFormat='TVA: {0}'}" FontSize="14" />
-                                </HorizontalStackLayout>
-                                
-                                <Label
-                                    Text="{Binding TenantId, StringFormat='Tenant ID: {0}'}"
-                                    FontSize="12"
-                                    TextColor="#999999" />
-                            </VerticalStackLayout>
-                            
-                            <HorizontalStackLayout Grid.Row="0" Grid.Column="1" Spacing="5" VerticalOptions="Center">
-                                <Button
-                                    Text="✏️"
-                                    FontSize="16"
-                                    WidthRequest="45"
-                                    HeightRequest="45"
-                                    CornerRadius="22"
-                                    BackgroundColor="#2196F3"
-                                    TextColor="White"
-                                    Clicked="OnEditItemClicked"
-                                    CommandParameter="{Binding .}" />
-                                
-                                <Button
-                                    Text="🗑️"
-                                    FontSize="16"
-                                    WidthRequest="45"
-                                    HeightRequest="45"
-                                    CornerRadius="22"
-                                    BackgroundColor="#F44336"
-                                    TextColor="White"
-                                    Clicked="OnDeleteItemClicked"
-                                    CommandParameter="{Binding .}" />
-                            </HorizontalStackLayout>
+            <!-- Left: Catalog Items -->
+            <Border Grid.Column="0" 
+                    StrokeShape="RoundRectangle 12" 
+                    StrokeThickness="0"
+                    BackgroundColor="#FFFFFF"
+                    Padding="0">
+                <Border.Shadow>
+                    <Shadow Brush="#000000" 
+                            Opacity="0.06" 
+                            Radius="8" 
+                            Offset="0,2"/>
+                </Border.Shadow>
+                
+                <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16">
+                    <Label Grid.Row="0" 
+                           Text="Catalog" 
+                           FontSize="15" 
+                           FontAttributes="Bold"
+                           TextColor="#1A1A1A"
+                           Margin="0,0,0,8"/>
+                    
+                    <BoxView Grid.Row="1" 
+                             HeightRequest="1" 
+                             Color="#F0F0F0"
+                             Margin="0,0,0,8"/>
+                    
+                    <!-- Search Bar -->
+                    <Border Grid.Row="2"
+                            StrokeShape="RoundRectangle 8"
+                            StrokeThickness="0"
+                            BackgroundColor="#F5F5F5"
+                            Margin="0,0,0,12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Padding="12,8">
+                            <Label Grid.Column="0"
+                                   Text="🔍"
+                                   FontSize="14"
+                                   VerticalOptions="Center"/>
+                            <Entry Grid.Column="1"
+                                   x:Name="SearchEntry"
+                                   Placeholder="Search items..."
+                                   FontSize="13"
+                                   BackgroundColor="Transparent"
+                                   TextChanged="OnSearchTextChanged"/>
                         </Grid>
-                    </Frame>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+                    </Border>
 
-    </VerticalStackLayout>
+                    <!-- Items List -->
+                    <ScrollView Grid.Row="3" VerticalOptions="FillAndExpand">
+                        <CollectionView x:Name="CatalogItemsCollectionView" 
+                                        SelectionMode="None">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Vertical" ItemSpacing="6"/>
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Border StrokeShape="RoundRectangle 8"
+                                            StrokeThickness="0"
+                                            BackgroundColor="#FAFAFA"
+                                            Padding="12">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                            <VerticalStackLayout Grid.Column="0" Spacing="3">
+                                                <Label Text="{Binding Name}" 
+                                                       FontSize="13" 
+                                                       FontAttributes="Bold"
+                                                       TextColor="#1A1A1A"
+                                                       LineBreakMode="TailTruncation"
+                                                       MaxLines="1"/>
+                                                <Label Text="{Binding Price, StringFormat='${0:F2}'}" 
+                                                       FontSize="12" 
+                                                       TextColor="#2ECC71"/>
+                                            </VerticalStackLayout>
+                                            
+                                            <Button Grid.Column="1"
+                                                    Text="+"
+                                                    WidthRequest="32"
+                                                    HeightRequest="32"
+                                                    CornerRadius="16"
+                                                    BackgroundColor="#1A1A1A"
+                                                    TextColor="#FFFFFF"
+                                                    FontSize="16"
+                                                    FontAttributes="Bold"
+                                                    Clicked="OnAddToCartClicked"
+                                                    CommandParameter="{Binding .}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </ScrollView>
+                </Grid>
+            </Border>
+
+            <!-- Right: Cart -->
+            <Border Grid.Column="1" 
+                    StrokeShape="RoundRectangle 12" 
+                    StrokeThickness="0"
+                    BackgroundColor="#FFFFFF"
+                    Padding="0">
+                <Border.Shadow>
+                    <Shadow Brush="#000000" 
+                            Opacity="0.06" 
+                            Radius="8" 
+                            Offset="0,2"/>
+                </Border.Shadow>
+                
+                <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="16">
+                    <Label Grid.Row="0" 
+                           Text="Cart" 
+                           FontSize="15" 
+                           FontAttributes="Bold"
+                           TextColor="#1A1A1A"
+                           Margin="0,0,0,8"/>
+                    
+                    <BoxView Grid.Row="1" 
+                             HeightRequest="1" 
+                             Color="#F0F0F0"
+                             Margin="0,0,0,8"/>
+                    
+                    <!-- Cart Items -->
+                    <CollectionView Grid.Row="2"
+                                    x:Name="CartCollectionView" 
+                                    SelectionMode="None"
+                                    VerticalOptions="FillAndExpand">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Vertical" ItemSpacing="6"/>
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.EmptyView>
+                            <VerticalStackLayout Spacing="8" VerticalOptions="CenterAndExpand">
+                                <Label Text="No items in cart" 
+                                       FontSize="14" 
+                                       TextColor="#8C8C8C"
+                                       HorizontalOptions="Center"/>
+                                <Label Text="Tap + to add items" 
+                                       FontSize="12" 
+                                       TextColor="#B0B0B0"
+                                       HorizontalOptions="Center"/>
+                            </VerticalStackLayout>
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Border StrokeShape="RoundRectangle 8"
+                                        StrokeThickness="0"
+                                        BackgroundColor="#FAFAFA"
+                                        Padding="12">
+                                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                            <Label Text="{Binding Name}" 
+                                                   FontSize="13" 
+                                                   FontAttributes="Bold"
+                                                   TextColor="#1A1A1A"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="1"/>
+                                            <Label Text="{Binding Price, StringFormat='${0:F2}'}" 
+                                                   FontSize="11" 
+                                                   TextColor="#8C8C8C"/>
+                                        </VerticalStackLayout>
+                                        
+                                        <!-- Quantity - -->
+                                        <Button Grid.Column="1"
+                                                Text="−"
+                                                WidthRequest="28"
+                                                HeightRequest="28"
+                                                CornerRadius="14"
+                                                BackgroundColor="#F5F5F5"
+                                                TextColor="#1A1A1A"
+                                                FontSize="14"
+                                                FontAttributes="Bold"
+                                                Clicked="OnDecreaseQuantityClicked"
+                                                CommandParameter="{Binding .}"/>
+                                        
+                                        <!-- Quantity -->
+                                        <Label Grid.Column="2"
+                                               Text="{Binding Quantity}"
+                                               FontSize="13"
+                                               FontAttributes="Bold"
+                                               TextColor="#1A1A1A"
+                                               WidthRequest="24"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalOptions="Center"/>
+                                        
+                                        <!-- Quantity + -->
+                                        <Button Grid.Column="3"
+                                                Text="+"
+                                                WidthRequest="28"
+                                                HeightRequest="28"
+                                                CornerRadius="14"
+                                                BackgroundColor="#F5F5F5"
+                                                TextColor="#1A1A1A"
+                                                FontSize="14"
+                                                FontAttributes="Bold"
+                                                Clicked="OnIncreaseQuantityClicked"
+                                                CommandParameter="{Binding .}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    
+                    <!-- Totals -->
+                    <BoxView Grid.Row="3" 
+                             HeightRequest="1" 
+                             Color="#F0F0F0"
+                             Margin="0,12,0,12"/>
+                    
+                    <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Label Grid.Column="0"
+                               Text="Total" 
+                               FontSize="16" 
+                               FontAttributes="Bold"
+                               TextColor="#1A1A1A"/>
+                        <Label Grid.Column="1"
+                               x:Name="TotalLabel"
+                               Text="$0.00" 
+                               FontSize="18" 
+                               FontAttributes="Bold"
+                               TextColor="#2ECC71"
+                               HorizontalTextAlignment="End"/>
+                    </Grid>
+                </Grid>
+            </Border>
+
+        </Grid>
+
+        <!-- Payment Actions -->
+        <Grid Grid.Row="3" ColumnDefinitions="*,*,Auto" ColumnSpacing="10">
+            <Button Grid.Column="0"
+                    x:Name="PayCashBtn"
+                    Text="💵 Cash"
+                    Clicked="OnPayCashClicked"
+                    BackgroundColor="#1A1A1A"
+                    TextColor="#FFFFFF"
+                    FontSize="14"
+                    FontAttributes="Bold"
+                    HeightRequest="48"
+                    CornerRadius="8"/>
+
+            <Button Grid.Column="1"
+                    x:Name="PayCardBtn"
+                    Text="💳 Card"
+                    Clicked="OnPayCardClicked"
+                    BackgroundColor="#2ECC71"
+                    TextColor="#FFFFFF"
+                    FontSize="14"
+                    FontAttributes="Bold"
+                    HeightRequest="48"
+                    CornerRadius="8"/>
+            
+            <Button Grid.Column="2"
+                    x:Name="ClearCartBtn"
+                    Text="Clear"
+                    Clicked="OnClearCartClicked"
+                    BackgroundColor="#F5F5F5"
+                    TextColor="#8C8C8C"
+                    FontSize="14"
+                    FontAttributes="Bold"
+                    HeightRequest="48"
+                    CornerRadius="8"
+                    WidthRequest="80"/>
+        </Grid>
+
+    </Grid>
 
 </ContentPage>

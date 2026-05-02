@@ -1,3 +1,4 @@
+using System.Text.Json;
 using OrderCloud.Blazor.Models;
 
 namespace OrderCloud.Android;
@@ -50,10 +51,14 @@ public partial class ItemDetailPage : ContentPage
             TenantId = Guid.Parse(TenantIdEntry.Text.Trim())
         };
 
-        await Navigation.PopAsync();
-        
-        // Pass the item back to the previous page
-        MessagingCenter.Send(this, _isEditMode ? "ItemUpdated" : "ItemCreated", item);
+        var navigationParameter = new Dictionary<string, object>
+        {
+            { "ReturnedItem", item },
+            { "Action", _isEditMode ? "ItemUpdated" : "ItemCreated" }
+        };
+
+        // Возвращаемся на предыдущую страницу и передаем объект через параметры Shell
+        await Shell.Current.GoToAsync("..", navigationParameter);
     }
 
     private bool ValidateInput()
@@ -95,6 +100,6 @@ public partial class ItemDetailPage : ContentPage
 
     private async void OnCancelClicked(object sender, EventArgs e)
     {
-        await Navigation.PopAsync();
+        await Shell.Current.GoToAsync("..");
     }
 }

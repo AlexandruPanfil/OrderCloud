@@ -1,0 +1,357 @@
+@page "/customers"
+@using OrderCloud.Blazor.Models
+@using OrderCloud.Blazor.Services
+@inject ICustomerService CustomerService
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Customers</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 mb-0">Customers</h1>
+            <div class="text-muted">@FilteredCustomers.Count() record@(FilteredCustomers.Count() == 1 ? "" : "s")</div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" @onclick="LoadDataAsync" disabled="@isLoading">
+                Refresh
+            </button>
+
+            <button class="btn btn-primary" @onclick="StartCreate">
+                New Customer
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-8">
+            <input class="form-control"
+                   placeholder="Search by name, email, phone, or id..."
+                   @bind="searchTerm"
+                   @bind:event="oninput" />
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-outline-secondary w-100" @onclick="LoadDataAsync" disabled="@isLoading">
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(pageError))
+    {
+        <div class="alert alert-danger">@pageError</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="alert alert-info">Loading customers…</div>
+    }
+
+    @if (showPanel)
+    {
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    @if (panelMode == PanelMode.Create)
+                    {
+                        <strong>Create Customer</strong>
+                    }
+                    else if (panelMode == PanelMode.Edit)
+                    {
+                        <strong>Edit Customer</strong>
+                    }
+                    else
+                    {
+                        <strong>View Customer</strong>
+                    }
+                </div>
+
+                <div class="d-flex gap-2">
+                    @if (panelMode == PanelMode.View)
+                    {
+                        <button class="btn btn-outline-primary btn-sm" @onclick="SwitchToEdit">Edit</button>
+                    }
+
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="ClosePanel">Close</button>
+                </div>
+            </div>
+
+            <div class="card-body">
+                @if (panelMode == PanelMode.View)
+                {
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Name</dt>
+                        <dd class="col-sm-9">@formCustomer.Name</dd>
+
+                        <dt class="col-sm-3">IDNO</dt>
+                        <dd class="col-sm-9">@formCustomer.IDNO</dd>
+
+                        <dt class="col-sm-3">Id</dt>
+                        <dd class="col-sm-9"><code>@formCustomer.Id</code></dd>
+                    </dl>
+                }
+                else
+                {
+                    <EditForm Model="formCustomer" OnSubmit="SaveAsync">
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Name</label>
+                                <InputText class="form-control" @bind-Value="formCustomer.Name" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">IDNO</label>
+                                <InputText class="form-control" @bind-Value="formCustomer.IDNO" />
+                            </div>
+
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(formError))
+                        {
+                            <div class="alert alert-danger mt-3 mb-0">@formError</div>
+                        }
+
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            @if (panelMode == PanelMode.Edit)
+                            {
+                                <button type="button" class="btn btn-danger" @onclick="() => DeleteAsync(formCustomer.Id)">
+                                    Delete
+                                </button>
+                            }
+
+                            <button type="button" class="btn btn-secondary" @onclick="ClosePanel">Cancel</button>
+                            <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                @(panelMode == PanelMode.Create ? "Create" : "Save")
+                            </button>
+                        </div>
+                    </EditForm>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="card">
+        <div class="card-header">
+            Customers
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>IDNO</th>
+                        <th style="width: 220px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (FilteredCustomers.Any())
+                    {
+                        @foreach (var customer in FilteredCustomers)
+                        {
+                            <tr>
+                                <td>@customer.Name</td>
+                                <td>@customer.IDNO</td>
+                                @* <td>@customer.IDNO</td> *@
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ViewCustomer(customer)">View</button>
+                                    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(customer)">Edit</button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(customer.Id)">Delete</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">
+                                No customers found.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private enum PanelMode
+    {
+        Create,
+        Edit,
+        View
+    }
+
+    private readonly List<CustomerDTO> customers = new();
+
+    private string searchTerm = string.Empty;
+    private bool isLoading;
+    private bool isSaving;
+    private bool showPanel;
+    private PanelMode panelMode;
+    private string? pageError;
+    private string? formError;
+    private CustomerDTO formCustomer = CreateEmptyCustomer();
+
+    private IEnumerable<CustomerDTO> FilteredCustomers => customers
+        .Where(customer => string.IsNullOrWhiteSpace(searchTerm)
+            || (customer.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (customer.IDNO.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            || customer.Id.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(customer => customer.Name);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        pageError = null;
+
+        try
+        {
+            customers.Clear();
+            customers.AddRange(await CustomerService.GetAllAsync());
+        }
+        catch (Exception ex)
+        {
+            customers.Clear();
+            pageError = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void StartCreate()
+    {
+        formCustomer = CreateEmptyCustomer();
+        formError = null;
+        panelMode = PanelMode.Create;
+        showPanel = true;
+    }
+
+    private void ViewCustomer(CustomerDTO customer)
+    {
+        formCustomer = Clone(customer);
+        formError = null;
+        panelMode = PanelMode.View;
+        showPanel = true;
+    }
+
+    private void StartEdit(CustomerDTO customer)
+    {
+        formCustomer = Clone(customer);
+        formError = null;
+        panelMode = PanelMode.Edit;
+        showPanel = true;
+    }
+
+    private void SwitchToEdit()
+    {
+        panelMode = PanelMode.Edit;
+        formError = null;
+    }
+
+    private void ClosePanel()
+    {
+        showPanel = false;
+        formError = null;
+        isSaving = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        formError = null;
+
+        if (string.IsNullOrWhiteSpace(formCustomer.Name))
+        {
+            formError = "Name is required.";
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            if (panelMode == PanelMode.Create)
+            {
+                var created = await CustomerService.CreateAsync(formCustomer);
+                customers.Add(created);
+                formCustomer = Clone(created);
+            }
+            else
+            {
+                var updated = await CustomerService.UpdateAsync(formCustomer.Id, formCustomer);
+                SyncToList(updated);
+                formCustomer = Clone(updated);
+            }
+
+            panelMode = PanelMode.View;
+        }
+        catch (Exception ex)
+        {
+            formError = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Delete this customer? This cannot be undone."))
+        {
+            return;
+        }
+
+        try
+        {
+            await CustomerService.DeleteAsync(id);
+            customers.RemoveAll(customer => customer.Id == id);
+
+            if (showPanel && formCustomer.Id == id)
+            {
+                ClosePanel();
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Delete failed: {ex.Message}");
+        }
+    }
+
+    private void SyncToList(CustomerDTO updated)
+    {
+        var index = customers.FindIndex(customer => customer.Id == updated.Id);
+        if (index >= 0)
+        {
+            customers[index] = updated;
+        }
+    }
+
+    private static CustomerDTO Clone(CustomerDTO customer) => new()
+    {
+        Id = customer.Id,
+        Name = customer.Name,
+        IDNO = customer.IDNO
+    };
+
+    private static CustomerDTO CreateEmptyCustomer() => new()
+    {
+        Id = Guid.Empty,
+        Name = string.Empty,
+        IDNO = string.Empty 
+    };
+}

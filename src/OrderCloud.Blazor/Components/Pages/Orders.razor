@@ -102,7 +102,7 @@
 
                             <div class="col-md-3">
                                 <label class="form-label">Customer IDNO</label>
-                                <InputNumber class="form-control" @bind-Value="formCustomerIdNo" disabled="@IsReadOnly" placeholder="Optional" />
+                                <InputText class="form-control" @bind-Value="formCustomerIdNo" disabled="@IsReadOnly" placeholder="Optional" />
                             </div>
                             
                             @if (panelMode != PanelMode.Create)
@@ -311,7 +311,7 @@
     private OrderDTO formOrder = CreateEmptyOrder();
 
     private string formCustomerName = string.Empty;
-    private decimal? formCustomerIdNo;
+    private string? formCustomerIdNo;
 
     private bool IsReadOnly => panelMode == PanelMode.View || formOrder.Status == "Completed";
 
@@ -562,7 +562,7 @@
             {
                 Id = Guid.Empty,
                 Name = formCustomerName.Trim(),
-                IDNO = formCustomerIdNo ?? 0
+                IDNO = formCustomerIdNo ?? string.Empty
             };
         }
 

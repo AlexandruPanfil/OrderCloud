@@ -1,171 +1,115 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="OrderCloud.Android.MainPage">
+             x:Class="OrderCloud.Android.MainPage"
+             BackgroundColor="#FAFAFA"
+             NavigationPage.HasNavigationBar="False">
 
-    <Grid RowDefinitions="Auto,*,Auto" Padding="10" RowSpacing="10">
-        
+    <Grid RowDefinitions="Auto,*" Padding="24">
+
         <!-- Header -->
-        <VerticalStackLayout Grid.Row="0" Spacing="5">
-            <Label
-                Text="Point of Sale"
-                FontSize="24"
-                FontAttributes="Bold"
-                HorizontalOptions="Center" />
-            <Label
-                x:Name="StatusLabel"
-                Text="Ready"
-                FontSize="14"
-                HorizontalOptions="Center"
-                TextColor="#666666" />
+        <VerticalStackLayout Grid.Row="0" Spacing="4" Margin="0,40,0,40">
+            <Label Text="OrderCloud"
+                   FontSize="28"
+                   FontAttributes="Bold"
+                   TextColor="#1A1A1A"
+                   HorizontalOptions="Center"/>
+            <Label Text="Select an option to continue"
+                   FontSize="14"
+                   TextColor="#8C8C8C"
+                   HorizontalOptions="Center"/>
         </VerticalStackLayout>
 
-        <!-- Main Content: Two Columns -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="10">
+        <!-- Menu Buttons -->
+        <VerticalStackLayout Grid.Row="1" Spacing="16" VerticalOptions="Start">
             
-            <!-- Left: Available Items -->
-            <Frame Grid.Column="0" BorderColor="#2196F3" CornerRadius="10" Padding="10">
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Available Items" FontSize="18" FontAttributes="Bold" />
-                    
-                    <Button
-                        x:Name="RefreshItemsBtn"
-                        Text="🔄 Refresh Items"
-                        Clicked="OnRefreshItemsClicked"
-                        BackgroundColor="#2196F3"
-                        TextColor="White" />
+            <!-- New Sale Card -->
+            <Border StrokeShape="RoundRectangle 16"
+                    StrokeThickness="0"
+                    BackgroundColor="#FFFFFF"
+                    HeightRequest="140">
+                <Border.Shadow>
+                    <Shadow Brush="#000000"
+                            Opacity="0.06"
+                            Radius="8"
+                            Offset="0,2"/>
+                </Border.Shadow>
 
-                    <ScrollView>
-                        <CollectionView x:Name="CatalogItemsCollectionView" SelectionMode="None">
-                            <CollectionView.ItemsLayout>
-                                <LinearItemsLayout Orientation="Vertical" ItemSpacing="5" />
-                            </CollectionView.ItemsLayout>
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <Frame BorderColor="#EEEEEE" Padding="10" Margin="0,3">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                            <VerticalStackLayout Grid.Column="0" Spacing="3">
-                                                <Label Text="{Binding Name}" FontSize="14" FontAttributes="Bold" />
-                                                <Label Text="{Binding Price, StringFormat='${0:F2}'}" FontSize="13" TextColor="#4CAF50" />
-                                                <Label Text="{Binding TVA, StringFormat='TVA: {0}'}" FontSize="11" TextColor="#999999" />
-                                            </VerticalStackLayout>
-                                            <Button
-                                                Grid.Column="1"
-                                                Text="+"
-                                                WidthRequest="40"
-                                                HeightRequest="40"
-                                                CornerRadius="20"
-                                                BackgroundColor="#4CAF50"
-                                                TextColor="White"
-                                                FontSize="20"
-                                                Clicked="OnAddToPosClicked"
-                                                CommandParameter="{Binding .}" />
-                                        </Grid>
-                                    </Frame>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                    </ScrollView>
-                </VerticalStackLayout>
-            </Frame>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Padding="24">
+                    <Border Grid.Column="0"
+                            StrokeShape="RoundRectangle 12"
+                            StrokeThickness="0"
+                            BackgroundColor="#1A1A1A"
+                            WidthRequest="56"
+                            HeightRequest="56"
+                            VerticalOptions="Center">
+                        <Label Text="$"
+                               FontSize="24"
+                               FontAttributes="Bold"
+                               TextColor="#FFFFFF"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"/>
+                    </Border>
 
-            <!-- Right: Current Sale -->
-            <Frame Grid.Column="1" BorderColor="#4CAF50" CornerRadius="10" Padding="10">
-                <VerticalStackLayout Spacing="10">
-                    <Label Text="Current Sale" FontSize="18" FontAttributes="Bold" />
-
-                    <ScrollView VerticalOptions="FillAndExpand">
-                        <CollectionView x:Name="CurrentSaleCollectionView" SelectionMode="None">
-                            <CollectionView.ItemsLayout>
-                                <LinearItemsLayout Orientation="Vertical" ItemSpacing="5" />
-                            </CollectionView.ItemsLayout>
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate>
-                                    <Frame BorderColor="#EEEEEE" Padding="10" Margin="0,3">
-                                        <Grid ColumnDefinitions="*,60,Auto" ColumnSpacing="5">
-                                            <VerticalStackLayout Grid.Column="0" Spacing="3">
-                                                <Label Text="{Binding Name}" FontSize="14" FontAttributes="Bold" />
-                                                <Label Text="{Binding Price, StringFormat='${0:F2}'}" FontSize="12" />
-                                            </VerticalStackLayout>
-                                            <Entry
-                                                Grid.Column="1"
-                                                Text="{Binding Quantity}"
-                                                Keyboard="Numeric"
-                                                FontSize="14"
-                                                HorizontalTextAlignment="Center"
-                                                VerticalOptions="Center" />
-                                            <Button
-                                                Grid.Column="2"
-                                                Text="✕"
-                                                WidthRequest="35"
-                                                HeightRequest="35"
-                                                CornerRadius="17"
-                                                BackgroundColor="#F44336"
-                                                TextColor="White"
-                                                Clicked="OnRemoveFromPosClicked"
-                                                CommandParameter="{Binding .}" />
-                                        </Grid>
-                                    </Frame>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                    </ScrollView>
-
-                    <BoxView HeightRequest="2" Color="#4CAF50" />
-
-                    <Label
-                        x:Name="SubtotalLabel"
-                        Text="Subtotal: $0.00"
-                        FontSize="16"
-                        HorizontalOptions="End" />
-
-                    <Label
-                        x:Name="TotalLabel"
-                        Text="TOTAL: $0.00"
-                        FontSize="22"
-                        FontAttributes="Bold"
-                        TextColor="#4CAF50"
-                        HorizontalOptions="End" />
-
-                    <Button
-                        x:Name="ClearSaleBtn"
-                        Text="Clear Sale"
-                        Clicked="OnClearSaleClicked"
-                        BackgroundColor="#9E9E9E"
-                        TextColor="White" />
-                </VerticalStackLayout>
-            </Frame>
-
-        </Grid>
-
-        <!-- Footer: Payment Actions -->
-        <Frame Grid.Row="2" BorderColor="#FF9800" CornerRadius="10" Padding="15">
-            <VerticalStackLayout Spacing="10">
-                <Label Text="Complete Sale" FontSize="18" FontAttributes="Bold" HorizontalOptions="Center" />
-                
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <Button
-                        Grid.Column="0"
-                        x:Name="PayCashBtn"
-                        Text="💵 Pay Cash"
-                        Clicked="OnPayCashClicked"
-                        BackgroundColor="#4CAF50"
-                        TextColor="White"
-                        FontSize="16"
-                        HeightRequest="60" />
-
-                    <Button
-                        Grid.Column="1"
-                        x:Name="PayCardBtn"
-                        Text="💳 Pay Card"
-                        Clicked="OnPayCardClicked"
-                        BackgroundColor="#2196F3"
-                        TextColor="White"
-                        FontSize="16"
-                        HeightRequest="60" />
+                    <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                        <Label Text="New Sale"
+                               FontSize="20"
+                               FontAttributes="Bold"
+                               TextColor="#1A1A1A"/>
+                        <Label Text="Create a new sale and add items"
+                               FontSize="13"
+                               TextColor="#8C8C8C"/>
+                    </VerticalStackLayout>
                 </Grid>
-            </VerticalStackLayout>
-        </Frame>
+
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnNewSaleTapped"/>
+                </Border.GestureRecognizers>
+            </Border>
+
+            <!-- Orders Card -->
+            <Border StrokeShape="RoundRectangle 16"
+                    StrokeThickness="0"
+                    BackgroundColor="#FFFFFF"
+                    HeightRequest="140">
+                <Border.Shadow>
+                    <Shadow Brush="#000000"
+                            Opacity="0.06"
+                            Radius="8"
+                            Offset="0,2"/>
+                </Border.Shadow>
+
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Padding="24">
+                    <Border Grid.Column="0"
+                            StrokeShape="RoundRectangle 12"
+                            StrokeThickness="0"
+                            BackgroundColor="#2ECC71"
+                            WidthRequest="56"
+                            HeightRequest="56"
+                            VerticalOptions="Center">
+                        <Label Text="📋"
+                               FontSize="24"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"/>
+                    </Border>
+
+                    <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                        <Label Text="Orders"
+                               FontSize="20"
+                               FontAttributes="Bold"
+                               TextColor="#1A1A1A"/>
+                        <Label Text="View and pay existing orders"
+                               FontSize="13"
+                               TextColor="#8C8C8C"/>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnOrdersTapped"/>
+                </Border.GestureRecognizers>
+            </Border>
+
+        </VerticalStackLayout>
 
     </Grid>
 

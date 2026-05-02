@@ -1,7 +1,171 @@
 ﻿@page "/"
+@using OrderCloud.Blazor.Models
+@using OrderCloud.Blazor.Services
+@inject HttpClient Http
+@inject ITenantSelectionService TenantSelectionService
+@rendermode InteractiveServer
+@implements IDisposable
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Dashboard</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container py-4">
+    <h1 class="h3 mb-4">Dashboard</h1>
 
-Welcome to your new app.
+    @if (!CurrentTenantId.HasValue)
+    {
+        <div class="alert alert-warning">Please select a tenant to view the dashboard.</div>
+    }
+    else if (isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+    else if (dashboard != null)
+    {
+        <!-- Metric Cards -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-4">
+                <div class="card bg-primary text-white h-100 shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title text-white-50">Orders Today</h6>
+                        <h2 class="display-5 mb-0">@dashboard.OrdersToday</h2>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card bg-success text-white h-100 shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title text-white-50">Revenue This Week</h6>
+                        <h2 class="display-5 mb-0">$@dashboard.RevenueThisWeek.ToString("F2")</h2>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card bg-info text-white h-100 shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title text-white-50">Active Devices</h6>
+                        <h2 class="display-5 mb-0">@dashboard.ActiveDevices</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Orders Table -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom">
+                <h5 class="mb-0 py-1">Recent Orders</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (dashboard.RecentOrders.Any())
+                        {
+                            @foreach (var order in dashboard.RecentOrders)
+                            {
+                                <tr>
+                                    <td><code>@order.Id.ToString()[..8]</code></td>
+                                    <td>@(order.Customer?.Name ?? "—")</td>
+                                    <td>@order.CreatedAt.ToString("MMM dd, HH:mm")</td>
+                                    <td>
+                                        <span class="badge @(order.Status == "Completed" ? "bg-success" : "bg-primary")">
+                                            @order.Status
+                                        </span>
+                                    </td>
+                                    <td class="text-end fw-bold">$@order.Total.ToString("F2")</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">No recent orders found.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DashboardDTO? dashboard;
+    private bool isLoading;
+    private string? errorMessage;
+
+    private Guid? CurrentTenantId => TenantSelectionService.SelectedTenantId;
+
+    public class DashboardDTO
+    {
+        public int OrdersToday { get; set; }
+        public decimal RevenueThisWeek { get; set; }
+        public int ActiveDevices { get; set; }
+        public List<OrderDTO> RecentOrders { get; set; } = new();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await TenantSelectionService.EnsureInitializedAsync();
+        TenantSelectionService.Changed += OnTenantChanged;
+        await LoadDashboardAsync();
+    }
+
+    private void OnTenantChanged()
+    {
+        _ = LoadDashboardAsync();
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        if (!CurrentTenantId.HasValue)
+        {
+            dashboard = null;
+            errorMessage = null;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        isLoading = true;
+        errorMessage = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var response = await Http.GetFromJsonAsync<DashboardDTO>($"api/dashboard?tenantId={CurrentTenantId.Value}");
+            dashboard = response;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load dashboard data: {ex.Message}";
+            dashboard = null;
+        }
+        finally
+        {
+            isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        TenantSelectionService.Changed -= OnTenantChanged;
+    }
+}

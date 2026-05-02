@@ -198,10 +198,14 @@
                     {
                         <hr />
                         <h6>Receipt:</h6>
-                        <pre class="border p-3" style="background-color: #f8f9fa;">@selectedBill.ReceiptContent</pre>
+                        <pre id="print-receipt" class="border p-3" style="background-color: #f8f9fa;">@selectedBill.ReceiptContent</pre>
                     }
                 </div>
                 <div class="modal-footer">
+                    @if (!string.IsNullOrWhiteSpace(selectedBill.ReceiptContent))
+                    {
+                        <button type="button" class="btn btn-primary" @onclick="PrintReceipt">Print</button>
+                    }
                     <button type="button" class="btn btn-secondary" @onclick="CloseModal">Close</button>
                 </div>
             </div>
@@ -269,6 +273,11 @@
         selectedBill = null;
     }
 
+    private async Task PrintReceipt()
+    {
+        await JSRuntime.InvokeVoidAsync("window.print");
+    }
+
     private async Task DeleteBill(Guid id)
     {
         if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this bill?"))
@@ -307,5 +316,4 @@
     {
         TenantSelectionService.Changed -= OnTenantChanged;
     }
-}
 }

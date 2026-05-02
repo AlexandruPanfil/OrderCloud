@@ -7,6 +7,15 @@ using OrderCloud.Blazor.Models;
 
 namespace OrderCloud.API.Controllers
 {
+    public class TenantResponseDTO
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string ApiKey { get; set; } = string.Empty;
+        public string? ApiSecret { get; set; }
+        public string? ApplicationUserId { get; set; }
+    }
+
     [ApiController]
     [Route("api/[controller]")]
     public class TenantsController : ControllerBase
@@ -21,18 +30,36 @@ namespace OrderCloud.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<TenantDTO>>> GetAll(CancellationToken cancellationToken = default)
+        public async Task<ActionResult<IEnumerable<TenantResponseDTO>>> GetAll(CancellationToken cancellationToken = default)
         {
             var list = await _db.Tenants.AsNoTracking().ToListAsync(cancellationToken);
-            return Ok(list);
+            var responseList = list.Select(t => new TenantResponseDTO
+            {
+                Id = t.Id,
+                Name = t.Name,
+                ApiKey = t.ApiKey,
+                ApiSecret = null,
+                ApplicationUserId = t.ApplicationUserId
+            });
+            return Ok(responseList);
         }
 
         [HttpGet("{id:guid}")]
-        public async Task<ActionResult<TenantDTO>> GetById(Guid id, CancellationToken cancellationToken = default)
+        public async Task<ActionResult<TenantResponseDTO>> GetById(Guid id, CancellationToken cancellationToken = default)
         {
             var tenant = await _db.Tenants.FindAsync(new object[] { id }, cancellationToken);
             if (tenant == null) return NotFound();
-            return Ok(tenant);
+
+            var response = new TenantResponseDTO
+            {
+                Id = tenant.Id,
+                Name = tenant.Name,
+                ApiKey = tenant.ApiKey,
+                ApiSecret = null,
+                ApplicationUserId = tenant.ApplicationUserId
+            };
+
+            return Ok(response);
         }
 
         [HttpPost]

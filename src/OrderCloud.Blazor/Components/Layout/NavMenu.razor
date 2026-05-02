@@ -1,11 +1,9 @@
 @implements IDisposable
 @using OrderCloud.Blazor.Models
 @using OrderCloud.Blazor.Services
-@using Microsoft.JSInterop
 
 @inject NavigationManager NavigationManager
 @inject ITenantSelectionService TenantSelectionService
-@inject IJSRuntime JS
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -78,6 +76,12 @@
         </div>
 
         <div class="nav-item px-3">
+            <NavLink class="nav-link" href="customers">
+                <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Customers
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
             <NavLink class="nav-link" href="users">
                 <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Users
             </NavLink>
@@ -124,7 +128,6 @@
 
 @code {
     private string? currentUrl;
-    private DotNetObjectReference<NavMenu>? dotNetHelper;
 
     private IReadOnlyList<TenantDTO> VisibleTenants => TenantSelectionService.AvailableTenants;
 
@@ -156,68 +159,6 @@
         Console.WriteLine($"NavMenu: Initialized with {VisibleTenants.Count} tenants, selected: {SelectedTenantIdStr}");
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            Console.WriteLine("NavMenu: OnAfterRenderAsync (first render)");
-            try
-            {
-                dotNetHelper = DotNetObjectReference.Create(this);
-                
-                // Simple test to see if JS interop works
-                await JS.InvokeVoidAsync("console.log", "NavMenu: Testing JS interop from Blazor");
-                
-                // Setup the event listener
-                await JS.InvokeVoidAsync("eval", @"
-                    (function(dotNetHelper) {
-                        console.log('JS: setupTenantSelector function called');
-                        const selector = document.getElementById('tenant-selector');
-                        console.log('JS: Selector element:', selector);
-                        
-                        if (selector) {
-                            console.log('JS: Adding change event listener to selector');
-                            selector.addEventListener('change', async function(e) {
-                                console.log('JS: Change event fired! New value:', e.target.value);
-                                try {
-                                    console.log('JS: Calling .NET method OnTenantChangedFromJS');
-                                    await dotNetHelper.invokeMethodAsync('OnTenantChangedFromJS', e.target.value);
-                                    console.log('JS: .NET method call completed');
-                                } catch (error) {
-                                    console.error('JS: Error calling .NET method:', error);
-                                }
-                            });
-                            console.log('JS: Event listener added successfully');
-                        } else {
-                            console.error('JS: Tenant selector element NOT FOUND!');
-                        }
-                    })(arguments[0]);
-                ", dotNetHelper);
-                
-                Console.WriteLine("NavMenu: JavaScript setup complete");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"NavMenu: ERROR setting up JS: {ex.GetType().Name}: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            }
-        }
-    }
-
-    [JSInvokable]
-    public async Task OnTenantChangedFromJS(string value)
-    {
-        Console.WriteLine($"NavMenu: OnTenantChangedFromJS called with value '{value}'");
-        
-        var tenantId = Guid.TryParse(value, out var id) ? id : (Guid?)null;
-        Console.WriteLine($"NavMenu: Parsed tenant ID from JS: {tenantId}");
-        
-        await TenantSelectionService.SetTenantAsync(tenantId);
-        Console.WriteLine("NavMenu: SetTenantAsync completed from JS");
-        
-        await InvokeAsync(StateHasChanged);
-    }
-
     private void OnTenantChanged()
     {
         Console.WriteLine("NavMenu: OnTenantChanged event received");
@@ -234,6 +175,5 @@
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
         TenantSelectionService.Changed -= OnTenantChanged;
-        dotNetHelper?.Dispose();
     }
-}
+    }

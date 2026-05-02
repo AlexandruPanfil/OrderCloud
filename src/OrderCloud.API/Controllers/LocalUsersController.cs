@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrderCloud.Blazor.Data;
@@ -27,6 +29,12 @@ namespace OrderCloud.API.Controllers
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
+            // Hide the hashed pin code when returning to client
+            foreach(var user in localUsers) 
+            {
+                user.PinCode = ""; 
+            }
+
             return Ok(localUsers);
         }
 
@@ -44,6 +52,9 @@ namespace OrderCloud.API.Controllers
                 return NotFound();
             }
 
+            // Hide the hashed pin code when returning to client
+            localUser.PinCode = "";
+
             return Ok(localUser);
         }
 
@@ -60,6 +71,8 @@ namespace OrderCloud.API.Controllers
                 localUser.Id = Guid.NewGuid();
             }
 
+            localUser.PinCode = HashPinCode(localUser.PinCode);
+
             localUser.Device = null;
             localUser.Tenant = null;
 
@@ -75,6 +88,7 @@ namespace OrderCloud.API.Controllers
                 return Problem(detail: ex.InnerException?.Message ?? ex.Message, statusCode: 500);
             }
 
+            localUser.PinCode = "";
             return CreatedAtAction(nameof(GetById), new { id = localUser.Id }, localUser);
         }
 
@@ -84,6 +98,12 @@ namespace OrderCloud.API.Controllers
             if (id == Guid.Empty || localUser == null)
             {
                 return BadRequest();
+            }
+
+            // For update, pin code might be empty if the client didn't change it
+            if (string.IsNullOrWhiteSpace(localUser.PinCode))
+            {
+                ModelState.Remove(nameof(localUser.PinCode)); // don't fail validation
             }
 
             if (!await ValidateAsync(localUser, cancellationToken))
@@ -98,7 +118,13 @@ namespace OrderCloud.API.Controllers
             }
 
             existing.Name = localUser.Name;
-            existing.PinCode = localUser.PinCode;
+            
+            // Only update the hash if a new pin code was provided
+            if (!string.IsNullOrWhiteSpace(localUser.PinCode))
+            {
+                existing.PinCode = HashPinCode(localUser.PinCode);
+            }
+
             existing.TenantId = localUser.TenantId;
             existing.DeviceId = localUser.DeviceId;
 
@@ -112,6 +138,7 @@ namespace OrderCloud.API.Controllers
                 return Problem(detail: ex.InnerException?.Message ?? ex.Message, statusCode: 500);
             }
 
+            existing.PinCode = "";
             return Ok(existing);
         }
 
@@ -158,9 +185,12 @@ namespace OrderCloud.API.Controllers
                 ModelState.AddModelError(nameof(localUser.Name), "Name is required.");
             }
 
-            if (string.IsNullOrWhiteSpace(localUser.PinCode))
+            if (ModelState.GetValidationState(nameof(localUser.PinCode)) != Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Skipped)
             {
-                ModelState.AddModelError(nameof(localUser.PinCode), "PIN code is required.");
+                if (string.IsNullOrWhiteSpace(localUser.PinCode))
+                {
+                    ModelState.AddModelError(nameof(localUser.PinCode), "PIN code is required.");
+                }
             }
 
             if (localUser.TenantId == Guid.Empty)
@@ -206,6 +236,24 @@ namespace OrderCloud.API.Controllers
             return string.Join(" ",
                 ModelState.Values.SelectMany(v => v.Errors)
                     .Select(e => e.ErrorMessage));
+        }
+
+        private static string HashPinCode(string pinCode)
+        {
+            byte[] salt = new byte[128 / 8];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(salt);
+            }
+
+            string hashed = Convert.ToBase64String(KeyDerivation.Pbkdf2(
+                password: pinCode,
+                salt: salt,
+                prf: KeyDerivationPrf.HMACSHA256,
+                iterationCount: 100000,
+                numBytesRequested: 256 / 8));
+
+            return $"{Convert.ToBase64String(salt)}:{hashed}";
         }
     }
 }

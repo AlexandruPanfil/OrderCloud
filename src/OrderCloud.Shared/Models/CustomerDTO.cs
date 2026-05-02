@@ -4,6 +4,6 @@
     {
         public Guid Id { get; set; }
         public string Name { get; set; }
-        public decimal IDNO { get; set; }
+        public string IDNO { get; set; }
     }
 }
