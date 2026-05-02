@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 using OrderCloud.Blazor.Components.Account.Pages;
 using OrderCloud.Blazor.Components.Account.Pages.Manage;
-using OrderCloud.Blazor.Data;
+using OrderCloud.Shared.Data;
 using System.Security.Claims;
 using System.Text.Json;
 
@@ -111,3 +111,4 @@ namespace Microsoft.AspNetCore.Routing
         }
     }
 }
+

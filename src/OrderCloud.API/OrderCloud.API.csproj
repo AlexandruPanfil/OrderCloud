@@ -8,13 +8,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.12" />
-	  <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="9.0.12" />
-	  <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.12" />
-	  <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.12" />
-	  <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.12" />
-	<ProjectReference Include="..\OrderCloud.Shared\OrderCloud.Shared.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\OrderCloud.Blazor\OrderCloud.Blazor.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="9.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.12" />
+    <ProjectReference Include="..\OrderCloud.Shared\OrderCloud.Shared.csproj" />
   </ItemGroup>
 </Project>

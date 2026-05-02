@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OrderCloud.Blazor.Components;
 using OrderCloud.Blazor.Components.Account;
-using OrderCloud.Blazor.Data;
+using OrderCloud.Shared.Data;
 using OrderCloud.Blazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +24,8 @@ if (string.IsNullOrWhiteSpace(apiBase))
 {
     apiBase = "https://localhost:7173/"; // <-- заменить на фактический URL вашего API при необходимости
 }
+
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBase) });
 
 builder.Services.AddHttpClient<ITenantService, TenantService>(client =>
 {
@@ -111,3 +113,4 @@ app.MapRazorComponents<App>()
 app.MapAdditionalIdentityEndpoints();
 
 app.Run();
+

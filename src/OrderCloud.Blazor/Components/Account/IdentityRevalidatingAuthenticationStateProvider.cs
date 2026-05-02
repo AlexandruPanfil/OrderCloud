@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
-using OrderCloud.Blazor.Data;
+using OrderCloud.Shared.Data;
 using System.Security.Claims;
 
 namespace OrderCloud.Blazor.Components.Account
@@ -46,3 +46,4 @@ namespace OrderCloud.Blazor.Components.Account
         }
     }
 }
+

@@ -1,4 +1,4 @@
-﻿namespace OrderCloud.Blazor.Models
+namespace OrderCloud.Shared.Models
 {
     public class OrderDTO
     {
@@ -20,3 +20,4 @@
         public List<ItemDTO> Items { get; set; } = new();
     }
 }
+

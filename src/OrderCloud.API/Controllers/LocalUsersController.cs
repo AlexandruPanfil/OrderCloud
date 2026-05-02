@@ -2,8 +2,8 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using OrderCloud.Blazor.Data;
-using OrderCloud.Blazor.Models;
+using OrderCloud.Shared.Data;
+using OrderCloud.Shared.Models;
 
 namespace OrderCloud.API.Controllers
 {
@@ -170,6 +170,56 @@ namespace OrderCloud.API.Controllers
             }
 
             return NoContent();
+        }
+
+        [HttpPost("verify-pin")]
+        public async Task<ActionResult<bool>> VerifyPin([FromBody] VerifyPinRequest request, CancellationToken cancellationToken = default)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.PinCode) || request.LocalUserId == Guid.Empty)
+            {
+                return BadRequest("Invalid request payload.");
+            }
+
+            var user = await _db.LocalUsers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == request.LocalUserId, cancellationToken);
+
+            if (user == null || string.IsNullOrWhiteSpace(user.PinCode))
+            {
+                return NotFound("User not found or PIN not set.");
+            }
+
+            var isValid = VerifyPinHash(request.PinCode, user.PinCode);
+
+            return Ok(isValid);
+        }
+
+        private static bool VerifyPinHash(string providedPin, string storedHash)
+        {
+            var parts = storedHash.Split(':');
+            if (parts.Length != 2)
+            {
+                return false; // Invalid hash format
+            }
+
+            try
+            {
+                var salt = Convert.FromBase64String(parts[0]);
+                var hash = parts[1];
+
+                string hashedProvided = Convert.ToBase64String(KeyDerivation.Pbkdf2(
+                    password: providedPin,
+                    salt: salt,
+                    prf: KeyDerivationPrf.HMACSHA256,
+                    iterationCount: 100000,
+                    numBytesRequested: 256 / 8));
+
+                return hash == hashedProvided;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private async Task<bool> ValidateAsync(LocalUserDTO localUser, CancellationToken cancellationToken)

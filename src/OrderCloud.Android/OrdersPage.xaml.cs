@@ -1,14 +1,15 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
-using OrderCloud.Blazor.Models;
+using OrderCloud.Shared.Models;
 
 namespace OrderCloud.Android;
 
 public partial class OrdersPage : ContentPage
 {
-    private const string ApiBaseUrl = "https://localhost:7173/api/orders";
-    private const string BillsApiUrl = "https://localhost:7173/api/bills";
+    private string ApiBaseUrl => $"{Constants.ApiBaseUrl}/api/orders";
+    private string BillsApiUrl => $"{Constants.ApiBaseUrl}/api/bills";
+    
     private List<OrderDTO> _orders = new();
     private OrderDTO? _selectedOrder;
 
@@ -295,3 +296,4 @@ public partial class OrdersPage : ContentPage
         }
     }
 }
+

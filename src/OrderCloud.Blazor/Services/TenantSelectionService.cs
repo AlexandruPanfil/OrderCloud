@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
-using OrderCloud.Blazor.Models;
+using OrderCloud.Shared.Models;
 
 namespace OrderCloud.Blazor.Services
 {
@@ -226,3 +226,4 @@ namespace OrderCloud.Blazor.Services
         }
     }
 }
+

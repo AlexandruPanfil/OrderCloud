@@ -1,5 +1,5 @@
 using System.Text.Json;
-using OrderCloud.Blazor.Models;
+using OrderCloud.Shared.Models;
 
 namespace OrderCloud.Android;
 
@@ -103,3 +103,4 @@ public partial class ItemDetailPage : ContentPage
         await Shell.Current.GoToAsync("..");
     }
 }
+

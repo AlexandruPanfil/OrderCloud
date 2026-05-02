@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
-using OrderCloud.Blazor.Models;
+using OrderCloud.Shared.Models;
 
 namespace OrderCloud.Android;
 
@@ -17,8 +17,8 @@ public class SaleItem
 
 public partial class ItemsPage : ContentPage, IQueryAttributable
 {
-	private const string ItemsApiUrl = "https://localhost:7173/api/items";
-	private const string BillsApiUrl = "https://localhost:7173/api/bills";
+	private string ItemsApiUrl => $"{Constants.ApiBaseUrl}/api/items";
+	private string BillsApiUrl => $"{Constants.ApiBaseUrl}/api/bills";
 
 	private List<CatalogItemDTO> _catalogItems = new();
 	private List<CatalogItemDTO> _filteredItems = new();
@@ -402,3 +402,4 @@ public partial class ItemsPage : ContentPage, IQueryAttributable
 		}
 	}
 }
+

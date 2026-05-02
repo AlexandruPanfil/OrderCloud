@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using OrderCloud.Blazor.Data;
+using OrderCloud.Shared.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -1,9 +1,9 @@
-﻿@page "/Account/Login"
+@page "/Account/Login"
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
-@using OrderCloud.Blazor.Data
+@using OrderCloud.Shared.Data
 
 @inject SignInManager<ApplicationUser> SignInManager
 @inject ILogger<Login> Logger
@@ -126,3 +126,4 @@
         public bool RememberMe { get; set; }
     }
 }
+

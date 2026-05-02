@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace OrderCloud.Blazor.Models
+namespace OrderCloud.Shared.Models
 {
     public class BillDTO
     {
@@ -35,3 +35,4 @@ namespace OrderCloud.Blazor.Models
         public BillDTO? Bill { get; set; }
     }
 }
+

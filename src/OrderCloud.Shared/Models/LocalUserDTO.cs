@@ -1,4 +1,4 @@
-﻿namespace OrderCloud.Blazor.Models
+namespace OrderCloud.Shared.Models
 {
     public class LocalUserDTO
     {
@@ -15,3 +15,4 @@
         public TenantDTO? Tenant { get; set; }
     }
 }
+

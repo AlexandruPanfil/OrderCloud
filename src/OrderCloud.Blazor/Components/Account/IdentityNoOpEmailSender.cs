@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
-using OrderCloud.Blazor.Data;
+using OrderCloud.Shared.Data;
 
 namespace OrderCloud.Blazor.Components.Account
 {
@@ -19,3 +19,4 @@ namespace OrderCloud.Blazor.Components.Account
             emailSender.SendEmailAsync(email, "Reset your password", $"Please reset your password using the following code: {resetCode}");
     }
 }
+

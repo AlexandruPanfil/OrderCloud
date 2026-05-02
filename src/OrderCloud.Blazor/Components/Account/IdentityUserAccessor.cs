@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Identity;
-using OrderCloud.Blazor.Data;
+using OrderCloud.Shared.Data;
 
 namespace OrderCloud.Blazor.Components.Account
 {
@@ -18,3 +18,4 @@ namespace OrderCloud.Blazor.Components.Account
         }
     }
 }
+

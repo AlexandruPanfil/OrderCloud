@@ -1,6 +1,6 @@
 @page "/orders"
 @implements IDisposable
-@using OrderCloud.Blazor.Models
+@using OrderCloud.Shared.Models
 @using OrderCloud.Blazor.Services
 @inject IOrderService OrderService
 @inject ILocalUserService LocalUserService
@@ -687,3 +687,4 @@
         TenantSelectionService.Changed -= OnTenantChanged;
     }
 }
+

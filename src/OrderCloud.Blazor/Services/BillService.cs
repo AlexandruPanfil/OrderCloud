@@ -1,4 +1,4 @@
-using OrderCloud.Blazor.Models;
+using OrderCloud.Shared.Models;
 
 namespace OrderCloud.Blazor.Services
 {
@@ -62,3 +62,4 @@ namespace OrderCloud.Blazor.Services
         }
     }
 }
+

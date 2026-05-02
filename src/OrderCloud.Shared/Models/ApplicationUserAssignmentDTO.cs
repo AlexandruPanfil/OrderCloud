@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace OrderCloud.Blazor.Models
+namespace OrderCloud.Shared.Models
 {
     public class ApplicationUserAssignmentDTO
     {
@@ -11,3 +11,4 @@ namespace OrderCloud.Blazor.Models
         public List<Guid> TenantIds { get; set; } = new();
     }
 }
+

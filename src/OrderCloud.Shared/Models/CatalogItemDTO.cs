@@ -1,4 +1,4 @@
-namespace OrderCloud.Blazor.Models
+namespace OrderCloud.Shared.Models
 {
     public class CatalogItemDTO
     {

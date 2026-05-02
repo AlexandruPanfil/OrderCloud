@@ -1,6 +1,6 @@
 @page "/bills"
 @implements IDisposable
-@using OrderCloud.Blazor.Models
+@using OrderCloud.Shared.Models
 @using OrderCloud.Blazor.Services
 @inject IBillService BillService
 @inject ITenantSelectionService TenantSelectionService
@@ -317,3 +317,4 @@
         TenantSelectionService.Changed -= OnTenantChanged;
     }
 }
+

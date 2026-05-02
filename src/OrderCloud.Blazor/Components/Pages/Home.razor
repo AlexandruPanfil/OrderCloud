@@ -1,5 +1,5 @@
-﻿@page "/"
-@using OrderCloud.Blazor.Models
+@page "/"
+@using OrderCloud.Shared.Models
 @using OrderCloud.Blazor.Services
 @inject HttpClient Http
 @inject ITenantSelectionService TenantSelectionService
@@ -169,3 +169,4 @@
         TenantSelectionService.Changed -= OnTenantChanged;
     }
 }
+

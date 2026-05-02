@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using OrderCloud.Blazor.Data;
-using OrderCloud.Blazor.Models;
+using OrderCloud.Shared.Data;
+using OrderCloud.Shared.Models;
 
 namespace OrderCloud.API.Controllers
 {
@@ -187,3 +187,4 @@ namespace OrderCloud.API.Controllers
         }
     }
 }
+

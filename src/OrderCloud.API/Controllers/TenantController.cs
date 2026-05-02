@@ -1,9 +1,9 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using OrderCloud.Blazor.Data;
-using OrderCloud.Blazor.Models;
+using OrderCloud.Shared.Data;
+using OrderCloud.Shared.Models;
 
 namespace OrderCloud.API.Controllers
 {
@@ -63,7 +63,7 @@ namespace OrderCloud.API.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<TenantDTO>> Create([FromBody] TenantDTO tenant, CancellationToken cancellationToken = default)
+        public async Task<ActionResult<TenantResponseDTO>> Create([FromBody] TenantDTO tenant, CancellationToken cancellationToken = default)
         {
             if (tenant == null) return BadRequest();
 
@@ -87,11 +87,21 @@ namespace OrderCloud.API.Controllers
                 return StatusCode(500, "Error saving tenant");
             }
 
-            return CreatedAtAction(nameof(GetById), new { id = tenant.Id }, tenant);
+            // Возвращаем TenantResponseDTO, добавляя ApiSecret только один раз для того, чтобы пользователь мог его сохранить
+            var response = new TenantResponseDTO
+            {
+                Id = tenant.Id,
+                Name = tenant.Name,
+                ApiKey = tenant.ApiKey,
+                ApiSecret = tenant.ApiSecret, // Исключение: возвращаем один раз при создании
+                ApplicationUserId = tenant.ApplicationUserId
+            };
+
+            return CreatedAtAction(nameof(GetById), new { id = tenant.Id }, response);
         }
 
         [HttpPut("{id:guid}")]
-        public async Task<ActionResult<TenantDTO>> Update(Guid id, [FromBody] TenantDTO tenant, CancellationToken cancellationToken = default)
+        public async Task<ActionResult<TenantResponseDTO>> Update(Guid id, [FromBody] TenantDTO tenant, CancellationToken cancellationToken = default)
         {
             if (tenant == null || id == Guid.Empty) return BadRequest();
 
@@ -109,7 +119,16 @@ namespace OrderCloud.API.Controllers
                 return StatusCode(500, "Error updating tenant");
             }
 
-            return Ok(existing);
+            var response = new TenantResponseDTO
+            {
+                Id = existing.Id,
+                Name = existing.Name,
+                ApiKey = existing.ApiKey,
+                ApiSecret = null, // Не возвращаем секрет при обновлении
+                ApplicationUserId = existing.ApplicationUserId
+            };
+
+            return Ok(response);
         }
 
         [HttpDelete("{id:guid}")]
@@ -141,3 +160,4 @@ namespace OrderCloud.API.Controllers
         }
     }
 }
+

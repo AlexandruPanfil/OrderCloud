@@ -1,4 +1,4 @@
-﻿namespace OrderCloud.Blazor.Models
+namespace OrderCloud.Shared.Models
 {
     public class DeviceDTO
     {
@@ -16,3 +16,4 @@
         //public LocalUserDTO? LocalUser { get; set; }
     }
 }
+
