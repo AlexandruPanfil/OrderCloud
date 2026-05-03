@@ -5,11 +5,66 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:OrderCloud.Android"
     Title="OrderCloud"
-    FlyoutBehavior="Disabled">
+    FlyoutBehavior="Flyout">
 
-    <ShellContent
+    <FlyoutItem
         Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+        FlyoutDisplayOptions="AsSingleItem"
+        Route="home">
+        <ShellContent
+            Title="Home"
+            ContentTemplate="{DataTemplate local:MainPage}"
+            Route="MainPage" />
+    </FlyoutItem>
+
+    <FlyoutItem
+        Title="Login"
+        FlyoutDisplayOptions="AsSingleItem"
+        Route="login">
+        <ShellContent
+            Title="Login"
+            ContentTemplate="{DataTemplate local:LoginPage}"
+            Route="LoginPage" />
+    </FlyoutItem>
+
+    <FlyoutItem
+        Title="New Sale"
+        FlyoutDisplayOptions="AsSingleItem"
+        Route="sale">
+        <ShellContent
+            Title="New Sale"
+            ContentTemplate="{DataTemplate local:ItemsPage}"
+            Route="ItemsPage" />
+    </FlyoutItem>
+
+    <FlyoutItem
+        Title="Items"
+        FlyoutDisplayOptions="AsSingleItem"
+        Route="items">
+        <ShellContent
+            Title="Items"
+            ContentTemplate="{DataTemplate local:ItemsPage}"
+            Route="ItemsMenuPage" />
+    </FlyoutItem>
+
+    <FlyoutItem
+        Title="Orders"
+        FlyoutDisplayOptions="AsSingleItem"
+        Route="orders">
+        <ShellContent
+            Title="Orders"
+            ContentTemplate="{DataTemplate local:OrdersPage}"
+            Route="OrdersPage" />
+    </FlyoutItem>
+
+    <FlyoutItem
+        Title="Settings"
+        FlyoutDisplayOptions="AsSingleItem"
+        Route="settings">
+        <ShellContent
+            Title="Settings"
+            ContentTemplate="{DataTemplate local:SettingsPage}"
+            Route="SettingsPage" />
+    </FlyoutItem>
 
 </Shell>

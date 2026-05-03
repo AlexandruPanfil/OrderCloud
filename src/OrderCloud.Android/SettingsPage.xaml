@@ -2,20 +2,41 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OrderCloud.Android.SettingsPage"
-             Title="Settings">
+             Title="Settings"
+             BackgroundColor="#FAFAFA"
+             NavigationPage.HasNavigationBar="False">
 
     <ScrollView>
         <VerticalStackLayout Padding="20" Spacing="20">
-            <Label Text="Configuration" FontSize="20" FontAttributes="Bold" />
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Button Grid.Column="0"
+                        Text="☰"
+                        Clicked="OnMenuClicked"
+                        BackgroundColor="#FFFFFF"
+                        TextColor="#1A1A1A"
+                        WidthRequest="40"
+                        HeightRequest="40"
+                        CornerRadius="20"
+                        FontSize="18"
+                        VerticalOptions="Start"/>
+
+                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                    <Label Text="Configuration" FontSize="22" FontAttributes="Bold" TextColor="#1A1A1A" />
+                    <Label Text="Manage the Android app connection settings" FontSize="12" TextColor="#1A1A1A" />
+                </VerticalStackLayout>
+            </Grid>
 
             <VerticalStackLayout Spacing="5">
-                <Label Text="API Base URL" />
-                <Entry x:Name="ApiUrlEntry" Keyboard="Url" />
+                <Label Text="API Base URL" TextColor="#1A1A1A" />
+                <Entry x:Name="ApiUrlEntry" Keyboard="Url" BackgroundColor="#FFFFFF" />
                 <Label Text="E.g., http://10.0.2.2:5126 (emulator) or https://YOUR_IP:7173 (device)" 
                        FontSize="Micro" TextColor="Gray" />
             </VerticalStackLayout>
 
-            <Button Text="Save Settings" Clicked="OnSaveClicked" />
+            <Button Text="Save Settings"
+                    Clicked="OnSaveClicked"
+                    BackgroundColor="#1A1A1A"
+                    TextColor="#FFFFFF" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

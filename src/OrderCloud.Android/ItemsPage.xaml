@@ -10,8 +10,18 @@
           RowSpacing="12">
 
         <!-- Header -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="8,0">
-            <VerticalStackLayout Grid.Column="0" Spacing="2">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="8,0">
+            <Button Grid.Column="0"
+                    Text="☰"
+                    Clicked="OnMenuClicked"
+                    BackgroundColor="#FFFFFF"
+                    TextColor="#1A1A1A"
+                    WidthRequest="40"
+                    HeightRequest="40"
+                    CornerRadius="20"
+                    FontSize="18"/>
+
+            <VerticalStackLayout Grid.Column="1" Spacing="2">
                 <Label Text="New Sale" 
                        FontSize="22" 
                        FontAttributes="Bold"
@@ -22,7 +32,7 @@
                        TextColor="#8C8C8C"/>
             </VerticalStackLayout>
             
-            <Button Grid.Column="1"
+            <Button Grid.Column="2"
                     x:Name="RefreshBtn"
                     Text="↻"
                     Clicked="OnRefreshClicked"

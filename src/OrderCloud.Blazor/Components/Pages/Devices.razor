@@ -173,8 +173,9 @@
                         <th>Name</th>
                         <th>Status</th>
                         <th>Active Till</th>
+                        <th>Activation Code</th>
                         <th>Tenant</th>
-                        <th style="width: 220px;"></th>
+                        <th style="width: 320px;"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -186,10 +187,15 @@
                                 <td>@device.Name</td>
                                 <td>@device.Status</td>
                                 <td>@device.ActiveTill.ToString("yyyy-MM-dd")</td>
+                                <td><code>@device.Id</code></td>
                                 <td>@ResolveTenantName(device.TenantId)</td>
                                 <td class="text-end">
                                     <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ViewDevice(device)">View</button>
                                     <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(device)">Edit</button>
+                                    @if (!IsDeviceActivated(device))
+                                    {
+                                        <button class="btn btn-sm btn-success me-1" @onclick="() => ActivateAsync(device)">Activate</button>
+                                    }
                                     <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(device.Id)">Delete</button>
                                 </td>
                             </tr>
@@ -198,7 +204,7 @@
                     else
                     {
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-4">
+                            <td colspan="6" class="text-center text-muted py-4">
                                 No devices found.
                             </td>
                         </tr>
@@ -405,6 +411,41 @@
         catch (Exception ex)
         {
             await JS.InvokeVoidAsync("alert", $"Delete failed: {ex.Message}");
+        }
+    }
+
+    private bool IsDeviceActivated(DeviceDTO device) =>
+        string.Equals(device.Status, "Active", StringComparison.OrdinalIgnoreCase)
+        && device.ActiveTill > DateTime.UtcNow;
+
+    private async Task ActivateAsync(DeviceDTO device)
+    {
+        if (!TenantSelectionService.CanAccessTenant(device.TenantId))
+        {
+            await JS.InvokeVoidAsync("alert", "You can only activate devices for your assigned tenants.");
+            return;
+        }
+
+        var updatedDevice = Clone(device);
+        updatedDevice.Status = "Active";
+        updatedDevice.ActiveTill = DateTime.UtcNow.AddMonths(1);
+
+        try
+        {
+            var updated = await DeviceService.UpdateAsync(device.Id, updatedDevice);
+            SyncToList(updated);
+
+            if (showPanel && formDevice.Id == updated.Id)
+            {
+                formDevice = Clone(updated);
+            }
+
+            await JS.InvokeVoidAsync("alert", $"Device activated. Activation code: {updated.Id}");
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Activation failed: {ex.Message}");
         }
     }
 

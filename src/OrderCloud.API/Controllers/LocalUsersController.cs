@@ -194,6 +194,46 @@ namespace OrderCloud.API.Controllers
             return Ok(isValid);
         }
 
+        [HttpPost("verify-pin-by-device")]
+        public async Task<ActionResult<VerifyPinByDeviceResponse>> VerifyPinByDevice([FromBody] VerifyPinByDeviceRequest request, CancellationToken cancellationToken = default)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.PinCode) || request.DeviceId == Guid.Empty)
+            {
+                return BadRequest("Invalid request payload.");
+            }
+
+            var localUsers = await _db.LocalUsers
+                .AsNoTracking()
+                .Where(u => u.DeviceId == request.DeviceId && !string.IsNullOrWhiteSpace(u.PinCode))
+                .ToListAsync(cancellationToken);
+
+            if (localUsers.Count == 0)
+            {
+                return Ok(new VerifyPinByDeviceResponse
+                {
+                    IsValid = false
+                });
+            }
+
+            foreach (var localUser in localUsers)
+            {
+                if (VerifyPinHash(request.PinCode, localUser.PinCode))
+                {
+                    return Ok(new VerifyPinByDeviceResponse
+                    {
+                        IsValid = true,
+                        LocalUserId = localUser.Id,
+                        LocalUserName = localUser.Name
+                    });
+                }
+            }
+
+            return Ok(new VerifyPinByDeviceResponse
+            {
+                IsValid = false
+            });
+        }
+
         private static bool VerifyPinHash(string providedPin, string storedHash)
         {
             var parts = storedHash.Split(':');

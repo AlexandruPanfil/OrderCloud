@@ -9,6 +9,7 @@ public partial class OrdersPage : ContentPage
 {
     private string ApiBaseUrl => $"{Constants.ApiBaseUrl}/api/orders";
     private string BillsApiUrl => $"{Constants.ApiBaseUrl}/api/bills";
+    private Guid? ActivatedTenantId => Constants.GetActivatedTenantId();
     
     private List<OrderDTO> _orders = new();
     private OrderDTO? _selectedOrder;
@@ -22,6 +23,14 @@ public partial class OrdersPage : ContentPage
     {
         base.OnAppearing();
         await LoadOrdersAsync();
+    }
+
+    private void OnMenuClicked(object sender, EventArgs e)
+    {
+        if (Shell.Current is not null)
+        {
+            Shell.Current.FlyoutIsPresented = true;
+        }
     }
 
     private async void OnRefreshClicked(object sender, EventArgs e)
@@ -117,6 +126,7 @@ public partial class OrdersPage : ContentPage
                 PaymentMethod = paymentMethod,
                 Subtotal = order.Total,
                 Total = order.Total,
+                TenantId = order.TenantId != Guid.Empty ? order.TenantId : ActivatedTenantId,
                 ReceiptContent = receipt,
                 Items = order.Items.Select(item => new BillItemDTO
                 {
@@ -250,10 +260,19 @@ public partial class OrdersPage : ContentPage
             StatusLabel.Text = "Loading orders...";
 
             var ordersFromApi = await FetchOrdersFromApiAsync();
-            if (ordersFromApi != null && ordersFromApi.Count > 0)
+            if (ordersFromApi != null)
             {
+                if (ActivatedTenantId.HasValue)
+                {
+                    ordersFromApi = ordersFromApi
+                        .Where(o => o.TenantId == ActivatedTenantId.Value)
+                        .ToList();
+                }
+
                 _orders = ordersFromApi;
-                StatusLabel.Text = $"Loaded {_orders.Count} orders";
+                StatusLabel.Text = _orders.Count > 0
+                    ? $"Loaded {_orders.Count} orders"
+                    : "No orders found";
             }
             else
             {

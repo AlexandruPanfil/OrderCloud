@@ -19,6 +19,7 @@ public partial class ItemsPage : ContentPage, IQueryAttributable
 {
 	private string ItemsApiUrl => $"{Constants.ApiBaseUrl}/api/items";
 	private string BillsApiUrl => $"{Constants.ApiBaseUrl}/api/bills";
+	private Guid? ActivatedTenantId => Constants.GetActivatedTenantId();
 
 	private List<CatalogItemDTO> _catalogItems = new();
 	private List<CatalogItemDTO> _filteredItems = new();
@@ -35,6 +36,14 @@ public partial class ItemsPage : ContentPage, IQueryAttributable
 		await LoadCatalogItems();
 	}
 
+	private void OnMenuClicked(object sender, EventArgs e)
+	{
+		if (Shell.Current is not null)
+		{
+			Shell.Current.FlyoutIsPresented = true;
+		}
+	}
+
 	// --- Catalog Loading ---
 
 	private async Task LoadCatalogItems()
@@ -44,11 +53,20 @@ public partial class ItemsPage : ContentPage, IQueryAttributable
 			StatusLabel.Text = "Loading items...";
 
 			var itemsFromApi = await FetchItemsFromApiAsync();
-			if (itemsFromApi != null && itemsFromApi.Count > 0)
+			if (itemsFromApi != null)
 			{
+				if (ActivatedTenantId.HasValue)
+				{
+					itemsFromApi = itemsFromApi
+						.Where(i => i.TenantId == ActivatedTenantId.Value)
+						.ToList();
+				}
+
 				_catalogItems = itemsFromApi;
 				_filteredItems = new List<CatalogItemDTO>(_catalogItems);
-				StatusLabel.Text = $"{_catalogItems.Count} items loaded";
+				StatusLabel.Text = _catalogItems.Count > 0
+					? $"{_catalogItems.Count} items loaded"
+					: "No items available";
 			}
 			else
 			{
@@ -57,7 +75,7 @@ public partial class ItemsPage : ContentPage, IQueryAttributable
 				StatusLabel.Text = "No items available";
 			}
 
-			Device.BeginInvokeOnMainThread(() =>
+			Dispatcher.Dispatch(() =>
 			{
 				CatalogItemsCollectionView.ItemsSource = null;
 				CatalogItemsCollectionView.ItemsSource = _filteredItems;
@@ -196,6 +214,7 @@ public partial class ItemsPage : ContentPage, IQueryAttributable
 				PaymentMethod = paymentMethod,
 				Subtotal = total,
 				Total = total,
+				TenantId = ActivatedTenantId,
 				ReceiptContent = receipt,
 				Items = _cart.Select(item => new BillItemDTO
 				{

@@ -8,17 +8,37 @@
     <Grid RowDefinitions="Auto,*" Padding="24">
 
         <!-- Header -->
-        <VerticalStackLayout Grid.Row="0" Spacing="4" Margin="0,40,0,40">
-            <Label Text="OrderCloud"
-                   FontSize="28"
-                   FontAttributes="Bold"
-                   TextColor="#1A1A1A"
-                   HorizontalOptions="Center"/>
-            <Label Text="Select an option to continue"
-                   FontSize="14"
-                   TextColor="#8C8C8C"
-                   HorizontalOptions="Center"/>
-        </VerticalStackLayout>
+        <Grid Grid.Row="0" Margin="0,24,0,40" ColumnDefinitions="*,Auto">
+            <VerticalStackLayout Grid.Column="0" Spacing="4" VerticalOptions="Center">
+                <Label Text="OrderCloud"
+                       FontSize="28"
+                       FontAttributes="Bold"
+                       TextColor="#1A1A1A"
+                       HorizontalOptions="Center"/>
+                <Label Text="Select an option to continue"
+                       FontSize="14"
+                       TextColor="#8C8C8C"
+                       HorizontalOptions="Center"/>
+            </VerticalStackLayout>
+
+            <Button Grid.Column="1"
+                    Text="☰"
+                    Clicked="OnMenuClicked"
+                    BackgroundColor="#FFFFFF"
+                    TextColor="#1A1A1A"
+                    WidthRequest="44"
+                    HeightRequest="44"
+                    CornerRadius="22"
+                    FontSize="20"
+                    VerticalOptions="Start">
+                <Button.Shadow>
+                    <Shadow Brush="#000000"
+                            Opacity="0.06"
+                            Radius="8"
+                            Offset="0,2"/>
+                </Button.Shadow>
+            </Button>
+        </Grid>
 
         <!-- Menu Buttons -->
         <VerticalStackLayout Grid.Row="1" Spacing="16" VerticalOptions="Start">
