@@ -27,7 +27,11 @@ namespace OrderCloud.API.Controllers
         [HttpGet]
         public async Task<ActionResult<List<ApplicationUserAssignmentDTO>>> GetAll(CancellationToken cancellationToken = default)
         {
-            var tenants = await _db.Tenants.AsNoTracking().ToListAsync(cancellationToken);
+            var tenants = await _db.Tenants
+                .AsNoTracking()
+                .Include(t => t.ApplicationUsers)
+                .ToListAsync(cancellationToken);
+
             var users = await _userManager.Users.OrderBy(u => u.UserName).ToListAsync(cancellationToken);
 
             var response = users.Select(user => new ApplicationUserAssignmentDTO
@@ -35,7 +39,10 @@ namespace OrderCloud.API.Controllers
                 Id = user.Id,
                 UserName = user.UserName ?? string.Empty,
                 Email = user.Email ?? string.Empty,
-                TenantIds = tenants.Where(t => t.ApplicationUserId == user.Id).Select(t => t.Id).ToList()
+                TenantIds = tenants
+                    .Where(t => t.ApplicationUsers.Any(applicationUser => applicationUser.Id == user.Id))
+                    .Select(t => t.Id)
+                    .ToList()
             }).ToList();
 
             return Ok(response);
@@ -47,13 +54,16 @@ namespace OrderCloud.API.Controllers
             if (string.IsNullOrWhiteSpace(userId)) return BadRequest("User identifier is required.");
             if (request == null) return BadRequest("TenantIds payload is required.");
 
-            var user = await _userManager.FindByIdAsync(userId);
+            var user = await _userManager.Users
+                .Include(u => u.Tenants)
+                .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
             if (user == null) return NotFound($"User '{userId}' not found.");
 
-            var tenantIds = request.TenantIds?.Distinct().ToList() ?? new List<Guid>();
+            var tenantIds = request.TenantIds?.Distinct().ToHashSet() ?? new HashSet<Guid>();
             List<TenantDTO> tenantsToAssign = new();
 
-            if (tenantIds.Count > 0)
+            if (tenantIds.Count != 0)
             {
                 tenantsToAssign = await _db.Tenants
                     .Where(t => tenantIds.Contains(t.Id))
@@ -66,18 +76,14 @@ namespace OrderCloud.API.Controllers
                 }
             }
 
-            var currentlyAssigned = await _db.Tenants
-                .Where(t => t.ApplicationUserId == userId)
-                .ToListAsync(cancellationToken);
-
-            foreach (var tenant in currentlyAssigned.Where(t => !tenantIds.Contains(t.Id)))
+            foreach (var tenant in user.Tenants.Where(t => !tenantIds.Contains(t.Id)).ToList())
             {
-                tenant.ApplicationUserId = null;
+                user.Tenants.Remove(tenant);
             }
 
-            foreach (var tenant in tenantsToAssign)
+            foreach (var tenant in tenantsToAssign.Where(t => user.Tenants.All(existing => existing.Id != t.Id)))
             {
-                tenant.ApplicationUserId = userId;
+                user.Tenants.Add(tenant);
             }
 
             try

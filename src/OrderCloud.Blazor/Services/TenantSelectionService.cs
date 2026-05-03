@@ -70,7 +70,7 @@ namespace OrderCloud.Blazor.Services
             var filteredTenants = string.IsNullOrWhiteSpace(userId)
                 ? new List<TenantDTO>()
                 : tenants
-                    .Where(tenant => string.Equals(tenant.ApplicationUserId, userId, StringComparison.OrdinalIgnoreCase))
+                    .Where(tenant => tenant.ApplicationUserIds.Any(id => string.Equals(id, userId, StringComparison.OrdinalIgnoreCase)))
                     .OrderBy(tenant => tenant.Name)
                     .ToList();
 
@@ -202,7 +202,9 @@ namespace OrderCloud.Blazor.Services
                     !string.Equals(current.Name, next.Name, StringComparison.Ordinal) ||
                     !string.Equals(current.ApiKey, next.ApiKey, StringComparison.Ordinal) ||
                     !string.Equals(current.ApiSecret, next.ApiSecret, StringComparison.Ordinal) ||
-                    !string.Equals(current.ApplicationUserId, next.ApplicationUserId, StringComparison.Ordinal))
+                    !current.ApplicationUserIds.OrderBy(id => id, StringComparer.Ordinal).SequenceEqual(
+                        next.ApplicationUserIds.OrderBy(id => id, StringComparer.Ordinal),
+                        StringComparer.Ordinal))
                 {
                     return true;
                 }

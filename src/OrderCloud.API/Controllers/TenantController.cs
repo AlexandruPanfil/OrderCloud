@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrderCloud.Shared.Data;
@@ -14,6 +15,7 @@ namespace OrderCloud.API.Controllers
         public string ApiKey { get; set; } = string.Empty;
         public string? ApiSecret { get; set; }
         public string? ApplicationUserId { get; set; }
+        public List<string> ApplicationUserIds { get; set; } = new();
     }
 
     [ApiController]
@@ -21,25 +23,35 @@ namespace OrderCloud.API.Controllers
     public class TenantsController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
+        private readonly UserManager<ApplicationUser> _userManager;
         private readonly ILogger<TenantsController> _logger;
 
-        public TenantsController(ApplicationDbContext db, ILogger<TenantsController> logger)
+        public TenantsController(
+            ApplicationDbContext db,
+            UserManager<ApplicationUser> userManager,
+            ILogger<TenantsController> logger)
         {
             _db = db ?? throw new ArgumentNullException(nameof(db));
+            _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
             _logger = logger;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TenantResponseDTO>>> GetAll(CancellationToken cancellationToken = default)
         {
-            var list = await _db.Tenants.AsNoTracking().ToListAsync(cancellationToken);
+            var list = await _db.Tenants
+                .AsNoTracking()
+                .Include(t => t.ApplicationUsers)
+                .ToListAsync(cancellationToken);
+
             var responseList = list.Select(t => new TenantResponseDTO
             {
                 Id = t.Id,
                 Name = t.Name,
                 ApiKey = t.ApiKey,
                 ApiSecret = null,
-                ApplicationUserId = t.ApplicationUserId
+                ApplicationUserId = t.ApplicationUsers.Select(user => user.Id).FirstOrDefault() ?? t.ApplicationUserId,
+                ApplicationUserIds = t.ApplicationUsers.Select(user => user.Id).ToList()
             });
             return Ok(responseList);
         }
@@ -47,7 +59,10 @@ namespace OrderCloud.API.Controllers
         [HttpGet("{id:guid}")]
         public async Task<ActionResult<TenantResponseDTO>> GetById(Guid id, CancellationToken cancellationToken = default)
         {
-            var tenant = await _db.Tenants.FindAsync(new object[] { id }, cancellationToken);
+            var tenant = await _db.Tenants
+                .Include(t => t.ApplicationUsers)
+                .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+
             if (tenant == null) return NotFound();
 
             var response = new TenantResponseDTO
@@ -56,7 +71,8 @@ namespace OrderCloud.API.Controllers
                 Name = tenant.Name,
                 ApiKey = tenant.ApiKey,
                 ApiSecret = null,
-                ApplicationUserId = tenant.ApplicationUserId
+                ApplicationUserId = tenant.ApplicationUsers.Select(user => user.Id).FirstOrDefault() ?? tenant.ApplicationUserId,
+                ApplicationUserIds = tenant.ApplicationUsers.Select(user => user.Id).ToList()
             };
 
             return Ok(response);
@@ -67,16 +83,51 @@ namespace OrderCloud.API.Controllers
         {
             if (tenant == null) return BadRequest();
 
-            if (tenant.Id == Guid.Empty) tenant.Id = Guid.NewGuid();
+            var requestedUserIds = tenant.ApplicationUserIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
-            tenant.ApiKey = string.IsNullOrWhiteSpace(tenant.ApiKey)
+            if (requestedUserIds.Count == 0 && !string.IsNullOrWhiteSpace(tenant.ApplicationUserId))
+            {
+                requestedUserIds.Add(tenant.ApplicationUserId);
+            }
+
+            var assignedUsers = requestedUserIds.Count == 0
+                ? new List<ApplicationUser>()
+                : await _userManager.Users
+                    .Where(user => requestedUserIds.Contains(user.Id))
+                    .ToListAsync(cancellationToken);
+
+            var missingUsers = requestedUserIds
+                .Except(assignedUsers.Select(user => user.Id), StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (missingUsers.Count != 0)
+            {
+                return NotFound($"User(s) not found: {string.Join(", ", missingUsers)}");
+            }
+
+            var tenantToCreate = new TenantDTO
+            {
+                Id = tenant.Id == Guid.Empty ? Guid.NewGuid() : tenant.Id,
+                Name = tenant.Name,
+                ApiKey = string.IsNullOrWhiteSpace(tenant.ApiKey)
                 ? GenerateBase64Url(24)
-                : tenant.ApiKey;
-            tenant.ApiSecret = string.IsNullOrWhiteSpace(tenant.ApiSecret)
+                : tenant.ApiKey,
+                ApiSecret = string.IsNullOrWhiteSpace(tenant.ApiSecret)
                 ? GenerateBase64Url(48)
-                : tenant.ApiSecret;
+                : tenant.ApiSecret,
+                ApplicationUserId = assignedUsers.Select(user => user.Id).FirstOrDefault() ?? tenant.ApplicationUserId
+            };
 
-            _db.Tenants.Add(tenant);
+            foreach (var assignedUser in assignedUsers)
+            {
+                tenantToCreate.ApplicationUsers.Add(assignedUser);
+            }
+
+            _db.Tenants.Add(tenantToCreate);
             try
             {
                 await _db.SaveChangesAsync(cancellationToken);
@@ -90,14 +141,15 @@ namespace OrderCloud.API.Controllers
             // Возвращаем TenantResponseDTO, добавляя ApiSecret только один раз для того, чтобы пользователь мог его сохранить
             var response = new TenantResponseDTO
             {
-                Id = tenant.Id,
-                Name = tenant.Name,
-                ApiKey = tenant.ApiKey,
-                ApiSecret = tenant.ApiSecret, // Исключение: возвращаем один раз при создании
-                ApplicationUserId = tenant.ApplicationUserId
+                Id = tenantToCreate.Id,
+                Name = tenantToCreate.Name,
+                ApiKey = tenantToCreate.ApiKey,
+                ApiSecret = tenantToCreate.ApiSecret, // Исключение: возвращаем один раз при создании
+                ApplicationUserId = tenantToCreate.ApplicationUserId,
+                ApplicationUserIds = assignedUsers.Select(user => user.Id).ToList()
             };
 
-            return CreatedAtAction(nameof(GetById), new { id = tenant.Id }, response);
+            return CreatedAtAction(nameof(GetById), new { id = tenantToCreate.Id }, response);
         }
 
         [HttpPut("{id:guid}")]
@@ -125,7 +177,11 @@ namespace OrderCloud.API.Controllers
                 Name = existing.Name,
                 ApiKey = existing.ApiKey,
                 ApiSecret = null, // Не возвращаем секрет при обновлении
-                ApplicationUserId = existing.ApplicationUserId
+                ApplicationUserId = existing.ApplicationUserId,
+                ApplicationUserIds = await _db.Tenants
+                    .Where(t => t.Id == existing.Id)
+                    .SelectMany(t => t.ApplicationUsers.Select(user => user.Id))
+                    .ToListAsync(cancellationToken)
             };
 
             return Ok(response);

@@ -1,4 +1,6 @@
-using System.Security.Cryptography;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
+using OrderCloud.Shared.Data;
 
 namespace OrderCloud.Shared.Models
 {
@@ -9,6 +11,12 @@ namespace OrderCloud.Shared.Models
         public string ApiKey { get; set; } = string.Empty;
         public string ApiSecret { get; set; } = string.Empty;
         public string? ApplicationUserId { get; set; }
+
+        [NotMapped]
+        public List<string> ApplicationUserIds { get; set; } = new();
+
+        [JsonIgnore]
+        public ICollection<ApplicationUser> ApplicationUsers { get; set; } = new List<ApplicationUser>();
     }    
 }
 

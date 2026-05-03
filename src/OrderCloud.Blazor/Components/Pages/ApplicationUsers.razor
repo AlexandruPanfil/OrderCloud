@@ -1,10 +1,8 @@
 @page "/users"
-@implements IDisposable
 @using OrderCloud.Shared.Models
 @using OrderCloud.Blazor.Services
 @inject IApplicationUserService ApplicationUserService
 @inject ITenantService TenantService
-@inject ITenantSelectionService TenantSelectionService
 @rendermode InteractiveServer
 
 <PageTitle>Application Users</PageTitle>
@@ -31,16 +29,10 @@
             <span>Loading users and tenants…</span>
         </div>
     }
-    else if (!VisibleTenants.Any())
-    {
-        <div class="empty-state">
-            <p>No tenants are assigned to your account.</p>
-        </div>
-    }
     else if (!VisibleUsers.Any())
     {
         <div class="empty-state">
-            <p>No users are assigned to the selected tenant.</p>
+            <p>No application users found.</p>
         </div>
     }
     else
@@ -94,7 +86,7 @@
                         @if (!VisibleTenants.Any())
                         {
                             <div class="empty-state">
-                                <p>Create tenants first before assigning them to users.</p>
+                                <p>No tenants found. Create tenants first before assigning them to users.</p>
                             </div>
                         }
                         else
@@ -135,18 +127,12 @@
     private readonly Dictionary<string, string?> assignmentErrors = new();
     private bool isLoading = true;
 
-    private Guid? CurrentTenantId => TenantSelectionService.SelectedTenantId;
+    private IReadOnlyList<TenantDTO> VisibleTenants => tenants;
 
-    private IReadOnlyList<TenantDTO> VisibleTenants => TenantSelectionService.AvailableTenants;
-
-    private IEnumerable<ApplicationUserAssignmentDTO> VisibleUsers => users
-        .Where(UserMatchesCurrentTenant)
-        .OrderBy(user => user.UserName);
+    private IEnumerable<ApplicationUserAssignmentDTO> VisibleUsers => users;
 
     protected override async Task OnInitializedAsync()
     {
-        await TenantSelectionService.EnsureInitializedAsync();
-        TenantSelectionService.Changed += OnTenantChanged;
         await LoadDataAsync();
     }
 
@@ -155,16 +141,26 @@
         isLoading = true;
         try
         {
-            await TenantSelectionService.RefreshAsync();
-            tenants = await TenantService.GetAllAsync();
-            users = await ApplicationUserService.GetAllAsync();
-            SyncSelections();
+            tenants = (await TenantService.GetAllAsync())
+                .OrderBy(tenant => tenant.Name)
+                .ToList();
+
+            await ReloadUsersAsync();
         }
         finally
         {
             isLoading = false;
             StateHasChanged();
         }
+    }
+
+    private async Task ReloadUsersAsync()
+    {
+        users = (await ApplicationUserService.GetAllAsync())
+            .OrderBy(user => user.UserName)
+            .ToList();
+
+        SyncSelections();
     }
 
     private void SyncSelections()
@@ -234,11 +230,7 @@
         try
         {
             await ApplicationUserService.UpdateTenantsAsync(userId, set.ToList());
-            var user = users.FirstOrDefault(u => u.Id == userId);
-            if (user != null)
-            {
-                user.TenantIds = set.ToList();
-            }
+            await ReloadUsersAsync();
         }
         catch (Exception ex)
         {
@@ -251,28 +243,5 @@
         }
     }
 
-    private bool UserMatchesCurrentTenant(ApplicationUserAssignmentDTO user)
-    {
-        if (!VisibleTenants.Any())
-        {
-            return false;
-        }
-
-        var tenantIds = user.TenantIds ?? new List<Guid>();
-
-        return CurrentTenantId.HasValue
-            ? tenantIds.Contains(CurrentTenantId.Value)
-            : tenantIds.Any(tenantId => VisibleTenants.Any(tenant => tenant.Id == tenantId));
-    }
-
-    private void OnTenantChanged()
-    {
-        _ = InvokeAsync(StateHasChanged);
-    }
-
-    public void Dispose()
-    {
-        TenantSelectionService.Changed -= OnTenantChanged;
-    }
 }
 

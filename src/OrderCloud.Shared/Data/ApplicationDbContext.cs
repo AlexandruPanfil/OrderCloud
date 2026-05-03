@@ -27,9 +27,33 @@ namespace OrderCloud.Shared.Data
 
             modelBuilder.Entity<TenantDTO>(b =>
             {
-                // Заменяем "TenantDTO" на "Tenants"
                 b.ToTable("Tenants");
                 b.HasKey(t => t.Id);
+                b.Property(t => t.ApplicationUserId)
+                    .HasColumnType("nvarchar(450)");
+                b.Ignore(t => t.ApplicationUserIds);
+                b.HasOne<ApplicationUser>()
+                    .WithMany()
+                    .HasForeignKey(t => t.ApplicationUserId);
+                b.HasMany(t => t.ApplicationUsers)
+                    .WithMany(u => u.Tenants)
+                    .UsingEntity<Dictionary<string, object>>(
+                        "TenantApplicationUser",
+                        right => right
+                            .HasOne<ApplicationUser>()
+                            .WithMany()
+                            .HasForeignKey("ApplicationUserId")
+                            .OnDelete(DeleteBehavior.Cascade),
+                        left => left
+                            .HasOne<TenantDTO>()
+                            .WithMany()
+                            .HasForeignKey("TenantId")
+                            .OnDelete(DeleteBehavior.Cascade),
+                        join =>
+                        {
+                            join.ToTable("TenantApplicationUsers");
+                            join.HasKey("TenantId", "ApplicationUserId");
+                        });
             });
 
             modelBuilder.Entity<CustomerDTO>(b =>

@@ -179,7 +179,8 @@
             Name = tenant.Name,
             ApiKey = tenant.ApiKey,
             ApiSecret = tenant.ApiSecret,
-            ApplicationUserId = tenant.ApplicationUserId
+            ApplicationUserId = tenant.ApplicationUserId,
+            ApplicationUserIds = tenant.ApplicationUserIds.ToList()
         };
 
         formError = null;
@@ -220,7 +221,8 @@
                 Name = formTenant.Name,
                 ApiKey = string.Empty,
                 ApiSecret = string.Empty,
-                ApplicationUserId = TenantSelectionService.CurrentUserId
+                ApplicationUserId = TenantSelectionService.CurrentUserId,
+                ApplicationUserIds = new List<string> { TenantSelectionService.CurrentUserId }
             });
 
             await LoadTenantsAsync();
