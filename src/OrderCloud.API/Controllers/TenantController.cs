@@ -49,7 +49,7 @@ namespace OrderCloud.API.Controllers
                 Id = t.Id,
                 Name = t.Name,
                 ApiKey = t.ApiKey,
-                ApiSecret = null,
+                ApiSecret = t.ApiSecret,
                 ApplicationUserId = t.ApplicationUsers.Select(user => user.Id).FirstOrDefault() ?? t.ApplicationUserId,
                 ApplicationUserIds = t.ApplicationUsers.Select(user => user.Id).ToList()
             });
@@ -70,7 +70,7 @@ namespace OrderCloud.API.Controllers
                 Id = tenant.Id,
                 Name = tenant.Name,
                 ApiKey = tenant.ApiKey,
-                ApiSecret = null,
+                ApiSecret = tenant.ApiSecret,
                 ApplicationUserId = tenant.ApplicationUsers.Select(user => user.Id).FirstOrDefault() ?? tenant.ApplicationUserId,
                 ApplicationUserIds = tenant.ApplicationUsers.Select(user => user.Id).ToList()
             };

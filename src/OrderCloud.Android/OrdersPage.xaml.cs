@@ -58,7 +58,12 @@ public partial class OrdersPage : ContentPage
 
         OrdersCollectionView.IsVisible = false;
         OrderDetailCard.IsVisible = true;
-        PaymentActions.IsVisible = true;
+
+        bool canPay = !(order.Status?.Equals("Paid", StringComparison.OrdinalIgnoreCase) == true ||
+                        order.Status?.Equals("Completed", StringComparison.OrdinalIgnoreCase) == true ||
+                        order.Status?.Equals("Cancelled", StringComparison.OrdinalIgnoreCase) == true);
+
+        PaymentActions.IsVisible = canPay;
 
         var shortId = order.Id.ToString("N")[..8];
         OrderTitle.Text = $"Order #{shortId}";

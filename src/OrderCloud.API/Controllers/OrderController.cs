@@ -141,22 +141,51 @@ namespace OrderCloud.API.Controllers
             existing.CustomerId = order.CustomerId;
             existing.UpdatedAt = DateTime.UtcNow;
 
-            // Replace items (simple approach). Ensure FK and totals are correct and prevent EF re-inserting nav props.
-            existing.Items = order.Items ?? new List<ItemDTO>();
-            foreach (var item in existing.Items)
+            // Sync items in-place so EF does not treat detached children as brand new rows.
+            var incomingItems = order.Items ?? new List<ItemDTO>();
+            var existingItemsById = existing.Items?.ToDictionary(item => item.Id) ?? new Dictionary<Guid, ItemDTO>();
+            var incomingItemIds = new HashSet<Guid>();
+
+            foreach (var incomingItem in incomingItems)
             {
-                if (item.Id == Guid.Empty) item.Id = Guid.NewGuid();
-                item.OrderId = existing.Id;
-                item.Total = item.Price * item.Quantity;
-                item.Order = null!;
+                if (incomingItem.Id == Guid.Empty)
+                {
+                    incomingItem.Id = Guid.NewGuid();
+                }
+
+                incomingItemIds.Add(incomingItem.Id);
+
+                if (existingItemsById.TryGetValue(incomingItem.Id, out var trackedItem))
+                {
+                    trackedItem.Name = incomingItem.Name;
+                    trackedItem.Price = incomingItem.Price;
+                    trackedItem.Quantity = incomingItem.Quantity;
+                    trackedItem.TVA = incomingItem.TVA;
+                    trackedItem.Total = trackedItem.Price * trackedItem.Quantity;
+                    trackedItem.OrderId = existing.Id;
+                }
+                else
+                {
+                    incomingItem.OrderId = existing.Id;
+                    incomingItem.Total = incomingItem.Price * incomingItem.Quantity;
+                    _db.Items.Add(incomingItem);
+                }
+            }
+
+            foreach (var trackedItem in existing.Items!.ToList())
+            {
+                if (!incomingItemIds.Contains(trackedItem.Id))
+                {
+                    _db.Items.Remove(trackedItem);
+                }
             }
 
             // Do not attach navigation objects for related existing entities
-            existing.Tenant = null!;
-            existing.Customer = null!;
+            existing.Tenant = null;
+            existing.Customer = null;
             existing.LocalUser = null;
 
-            existing.Total = existing.Items.Sum(i => i.Total);
+            existing.Total = existing.Items?.Sum(i => i.Total) ?? 0;
 
             try
             {
@@ -168,9 +197,12 @@ namespace OrderCloud.API.Controllers
                 return Problem(detail: ex.InnerException?.Message ?? ex.Message, statusCode: 500);
             }
 
-            foreach (var item in existing.Items)
+            if (existing.Items != null)
             {
-                item.Order = null;
+                foreach (var item in existing.Items)
+                {
+                    item.Order = null;
+                }
             }
 
             return Ok(existing);
