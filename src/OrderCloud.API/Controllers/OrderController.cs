@@ -71,63 +71,15 @@ namespace OrderCloud.API.Controllers
             if (order == null) return BadRequest();
             if (order.Id == Guid.Empty) order.Id = Guid.NewGuid();
 
-            // Validate that we have proper Tenant and LocalUser
-            if (order.Tenant == null || order.Tenant.Id == Guid.Empty)
+            // Проверяем и заполняем зависимости
+            if (!await PrepareOrderForSaveAsync(order, cancellationToken))
             {
-                return BadRequest("Tenant is required.");
-            }
-
-            if (order.LocalUser == null || order.LocalUser.Id == Guid.Empty)
-            {
-                return BadRequest("Local User is required.");
-            }
-
-            // Set keys
-            order.TenantId = order.Tenant.Id;
-            order.LocalUserId = order.LocalUser.Id;
-
-            // Handle Customer creation if provided
-            if (order.Customer != null && !string.IsNullOrWhiteSpace(order.Customer.Name))
-            {
-                if (order.Customer.Id == Guid.Empty)
-                {
-                    order.Customer.Id = Guid.NewGuid();
-                }
-
-                // Attach customer to EF context if it's new
-                var existingCustomer = await _db.Customers.AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.Id == order.Customer.Id, cancellationToken);
-                
-                if (existingCustomer == null)
-                {
-                    _db.Customers.Add(order.Customer);
-                }
-
-                order.CustomerId = order.Customer.Id;
-            }
-            else
-            {
-                // FALLBACK ONLY: If DB has NOT NULL on CustomerId, we must provide one. 
-                // We create a dummy "Walk-in Customer"
-                var defaultCustomer = await _db.Customers.FirstOrDefaultAsync(c => c.Name == "Walk-in", cancellationToken);
-                if (defaultCustomer == null)
-                {
-                    defaultCustomer = new CustomerDTO { Id = Guid.NewGuid(), Name = "Walk-in" };
-                    _db.Customers.Add(defaultCustomer);
-                }
-
-                order.Customer = null;
-                order.CustomerId = defaultCustomer.Id;
+                return ValidationProblem(ModelState);
             }
 
             order.CreatedAt = DateTime.UtcNow;
             order.UpdatedAt = order.CreatedAt;
             order.Items ??= new List<ItemDTO>();
-
-            // Detach objects that should not be re-created
-            order.Tenant = null!;
-            order.LocalUser = null;
-            order.Customer = null;
 
             foreach (var item in order.Items)
             {
@@ -151,14 +103,11 @@ namespace OrderCloud.API.Controllers
                 return Problem(detail: ex.InnerException?.Message ?? ex.Message, statusCode: 500);
             }
 
-            // Перед возвратом результата важно занулить ссылки на заказ внутри items,
-            // если savechanges модифицировал объекты и восстановил связи.
             foreach (var item in order.Items)
             {
                 item.Order = null;
             }
 
-            // Fetch the fully constructed order without navigation properties holding cycles
             return CreatedAtAction(nameof(GetById), new { id = order.Id }, new OrderDTO
             {
                 Id = order.Id,
@@ -242,21 +191,38 @@ namespace OrderCloud.API.Controllers
 
         private async Task<bool> PrepareOrderForSaveAsync(OrderDTO order, CancellationToken cancellationToken)
         {
-            var tenant = await ResolveTenantAsync(order, cancellationToken);
-            var localUser = tenant == null
-                ? null
-                : await ResolveLocalUserAsync(order, tenant.Id, cancellationToken);
+            // Resolve tenant by ID (from the navigation property or TenantId field)
+            var tenantId = order.TenantId != Guid.Empty 
+                ? order.TenantId 
+                : order.Tenant?.Id ?? Guid.Empty;
 
-            if (tenant == null || localUser == null)
+            if (tenantId == Guid.Empty)
             {
+                ModelState.AddModelError(nameof(order.Tenant), "Tenant is required.");
+                return false;
+            }
+
+            var tenant = await _db.Tenants.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == tenantId, cancellationToken);
+
+            if (tenant == null)
+            {
+                ModelState.AddModelError(nameof(order.Tenant), "Tenant not found.");
                 return false;
             }
 
             order.TenantId = tenant.Id;
-            order.LocalUserId = localUser.Id;
 
+            var localUser = await ResolveLocalUserAsync(order, tenant.Id, cancellationToken);
+            if (localUser == null) 
+            {
+                return false;
+            }
+
+            order.LocalUserId = localUser.Id;
             await ResolveCustomerAsync(order, cancellationToken);
 
+            // Detach objects that should not be re-created
             order.Tenant = null;
             order.LocalUser = null;
             order.Customer = null;
@@ -264,30 +230,30 @@ namespace OrderCloud.API.Controllers
             return ModelState.IsValid;
         }
 
-        private async Task<TenantDTO?> ResolveTenantAsync(OrderDTO order, CancellationToken cancellationToken)
-        {
-            var apiKey = order.Tenant?.ApiKey;
-            var apiSecret = order.Tenant?.ApiSecret;
+        //private async Task<TenantDTO?> ResolveTenantAsync(OrderDTO order, CancellationToken cancellationToken)
+        //{
+        //    var apiKey = order.Tenant?.ApiKey;
+        //    var apiSecret = order.Tenant?.ApiSecret;
 
-            if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(apiSecret))
-            {
-                ModelState.AddModelError(nameof(order.Tenant), "Tenant api key and secret key are required.");
-                return null;
-            }
+        //    if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(apiSecret))
+        //    {
+        //        ModelState.AddModelError(nameof(order.Tenant), "Tenant api key and secret key are required.");
+        //        return null;
+        //    }
 
-            var tenant = await _db.Tenants
-                .AsNoTracking()
-                .FirstOrDefaultAsync(
-                    t => t.ApiKey == apiKey && t.ApiSecret == apiSecret,
-                    cancellationToken);
+        //    var tenant = await _db.Tenants
+        //        .AsNoTracking()
+        //        .FirstOrDefaultAsync(
+        //            t => t.ApiKey == apiKey && t.ApiSecret == apiSecret,
+        //            cancellationToken);
 
-            if (tenant == null)
-            {
-                ModelState.AddModelError(nameof(order.Tenant), "Tenant with the provided api key and secret key was not found.");
-            }
+        //    if (tenant == null)
+        //    {
+        //        ModelState.AddModelError(nameof(order.Tenant), "Tenant with the provided api key and secret key was not found.");
+        //    }
 
-            return tenant;
-        }
+        //    return tenant;
+        //}
 
         private async Task<LocalUserDTO?> ResolveLocalUserAsync(OrderDTO order, Guid tenantId, CancellationToken cancellationToken)
         {

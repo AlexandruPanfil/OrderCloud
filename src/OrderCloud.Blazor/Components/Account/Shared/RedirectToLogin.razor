@@ -3,6 +3,8 @@
 @code {
     protected override void OnInitialized()
     {
-        NavigationManager.NavigateTo($"Account/Login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}", forceLoad: true);
+        var uri = NavigationManager.Uri;
+        var returnUrl = uri.Contains("Account/Login") ? string.Empty : $"?returnUrl={Uri.EscapeDataString(uri)}";
+        NavigationManager.NavigateTo($"Account/Login{returnUrl}", forceLoad: true);
     }
 }

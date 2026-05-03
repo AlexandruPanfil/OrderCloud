@@ -566,8 +566,13 @@
             };
         }
 
-        formOrder.Tenant = selectedTenant;
-        formOrder.LocalUser = selectedLocalUser;
+        // KEEP ONLY TenantId and LocalUserId, DO NOT set navigation properties
+        formOrder.TenantId = selectedTenant.Id;
+        formOrder.Tenant = null; // let the API resolve it
+
+        formOrder.LocalUserId = selectedLocalUser.Id;
+        formOrder.LocalUser = new LocalUserDTO { Id = selectedLocalUser.Id, Name = selectedLocalUser.Name, TenantId = selectedTenant.Id }; // Passing a stub for the API to resolve
+
         formOrder.Customer = customer;
         formOrder.CustomerId = null;
 

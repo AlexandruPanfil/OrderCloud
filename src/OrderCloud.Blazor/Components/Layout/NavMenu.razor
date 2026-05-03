@@ -1,6 +1,7 @@
 @implements IDisposable
 @using OrderCloud.Shared.Models
 @using OrderCloud.Blazor.Services
+@rendermode InteractiveServer
 
 @inject NavigationManager NavigationManager
 @inject ITenantSelectionService TenantSelectionService
@@ -21,16 +22,14 @@
                     id="tenant-selector"
                     value="@SelectedTenantIdStr"
                     @onchange="OnTenantSelectionChanged"
-                    @onchange:stopPropagation="true"
-                    disabled="@(!VisibleTenants.Any())"
-                    @onclick:stopPropagation="true">
+                    disabled="@(!VisibleTenants.Any())">
                 <option value="">@(VisibleTenants.Any() ? "All tenants" : "No tenants assigned")</option>
                 @foreach (var tenant in VisibleTenants)
                 {
                     <option value="@tenant.Id">@tenant.Name</option>
                 }
             </select>
-            <div class="text-white-50 small mt-1">Selected: @(TenantSelectionService.SelectedTenantId?.ToString() ?? "None")</div>
+            @* <div class="text-white-50 small mt-1">Selected: @(TenantSelectionService.SelectedTenantId?.ToString() ?? "None")</div> *@
         </div>
 
         <div class="nav-item px-3">

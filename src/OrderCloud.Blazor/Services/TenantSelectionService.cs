@@ -144,24 +144,20 @@ namespace OrderCloud.Blazor.Services
         {
             try
             {
-                Console.WriteLine($"Getting stored tenant from localStorage with key '{StorageKey}'");
-                var stored = await jsRuntime.InvokeAsync<string?>("localStorage.getItem", StorageKey);
-                Console.WriteLine($"Retrieved from localStorage: '{stored}'");
-                
-                if (Guid.TryParse(stored, out var storedId))
-                {
-                    Console.WriteLine($"Parsed tenant ID: {storedId}");
-                    return storedId;
-                }
-                
-                Console.WriteLine("No valid tenant ID found in localStorage");
+                var stored = await jsRuntime.InvokeAsync<string?>(
+                    "localStorage.getItem", 
+                    cancellationToken: default,
+                    StorageKey);
+                return Guid.TryParse(stored, out var id) ? id : null;
             }
-            catch (Exception ex)
+            catch (InvalidOperationException)   // Выбрасывается в процессе prerender (до того как SignalR подключен)
             {
-                Console.WriteLine($"ERROR getting from localStorage: {ex.GetType().Name}: {ex.Message}");
+                return null;
             }
-            
-            return null;
+            catch (JSException)
+            {
+                return null;
+            }
         }
 
         public async Task PersistTenantIdAsync(Guid? tenantId)
