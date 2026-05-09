@@ -7,34 +7,25 @@
 
 <PageTitle>Customers</PageTitle>
 
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h1 class="h3 mb-0">Customers</h1>
-            <div class="text-muted">@FilteredCustomers.Count() record@(FilteredCustomers.Count() == 1 ? "" : "s")</div>
+<div class="customers-page">
+    <div class="page-header">
+        <div class="header-left">
+            <h1 class="page-title">Customers</h1>
+            <span class="count-badge">@FilteredCustomers.Count() customer@(FilteredCustomers.Count() == 1 ? "" : "s")</span>
         </div>
-
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-secondary" @onclick="LoadDataAsync" disabled="@isLoading">
+        <div class="header-actions">
+            <button class="btn-refresh" @onclick="LoadDataAsync" disabled="@isLoading" title="Refresh customers">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z" />
+                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
+                </svg>
                 Refresh
             </button>
-
-            <button class="btn btn-primary" @onclick="StartCreate">
+            <button class="btn-create" @onclick="StartCreate">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
                 New Customer
-            </button>
-        </div>
-    </div>
-
-    <div class="row g-2 mb-3">
-        <div class="col-md-8">
-            <input class="form-control"
-                   placeholder="Search by name, email, phone, or id..."
-                   @bind="searchTerm"
-                   @bind:event="oninput" />
-        </div>
-        <div class="col-md-4">
-            <button class="btn btn-outline-secondary w-100" @onclick="LoadDataAsync" disabled="@isLoading">
-                Refresh
             </button>
         </div>
     </div>
@@ -46,160 +37,264 @@
 
     @if (isLoading)
     {
-        <div class="alert alert-info">Loading customers…</div>
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <span>Loading customers…</span>
+        </div>
     }
-
-    @if (showPanel)
+    else if (!customers.Any())
     {
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <div>
-                    @if (panelMode == PanelMode.Create)
+        <div class="empty-state">
+            <p>No customers found. Create your first customer to get started.</p>
+        </div>
+    }
+    else
+    {
+        <div class="master-detail-container">
+            <div class="customers-list-panel">
+                <h2 class="panel-title">Customers</h2>
+
+                <div class="search-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
+                    <input type="text" 
+                           class="search-input" 
+                           placeholder="Search customers..." 
+                           @bind="searchTerm"
+                           @bind:event="oninput" />
+                    @if (!string.IsNullOrWhiteSpace(searchTerm))
                     {
-                        <strong>Create Customer</strong>
+                        <button class="clear-search" @onclick="() => searchTerm = string.Empty" title="Clear search">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                            </svg>
+                        </button>
                     }
-                    else if (panelMode == PanelMode.Edit)
+                </div>
+
+                <div class="customers-list">
+                    @if (!FilteredCustomers.Any())
                     {
-                        <strong>Edit Customer</strong>
+                        <div class="no-results">No customers match your search</div>
                     }
                     else
                     {
-                        <strong>View Customer</strong>
+                        @foreach (var customer in FilteredCustomers)
+                        {
+                            <div class="customer-list-item @(selectedCustomer?.Id == customer.Id ? "selected" : "")" 
+                                 @onclick="() => SelectCustomer(customer)">
+                                <div class="customer-info">
+                                    <div class="customer-name">@customer.Name</div>
+                                    @if (!string.IsNullOrWhiteSpace(customer.IDNO))
+                                    {
+                                        <div class="customer-idno">IDNO: @customer.IDNO</div>
+                                    }
+                                </div>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                                </svg>
+                            </div>
+                        }
                     }
-                </div>
-
-                <div class="d-flex gap-2">
-                    @if (panelMode == PanelMode.View)
-                    {
-                        <button class="btn btn-outline-primary btn-sm" @onclick="SwitchToEdit">Edit</button>
-                    }
-
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="ClosePanel">Close</button>
                 </div>
             </div>
 
-            <div class="card-body">
-                @if (panelMode == PanelMode.View)
+            <div class="customer-details-panel">
+                @if (isCreating)
                 {
-                    <dl class="row mb-0">
-                        <dt class="col-sm-3">Name</dt>
-                        <dd class="col-sm-9">@formCustomer.Name</dd>
+                    @* CREATE MODE *@
+                    <div class="details-header">
+                        <h2>Create New Customer</h2>
+                        <button class="btn-close" @onclick="CancelCreate">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                            </svg>
+                        </button>
+                    </div>
 
-                        <dt class="col-sm-3">IDNO</dt>
-                        <dd class="col-sm-9">@formCustomer.IDNO</dd>
+                    @if (!string.IsNullOrWhiteSpace(formError))
+                    {
+                        <div class="alert alert-danger">@formError</div>
+                    }
 
-                        <dt class="col-sm-3">Id</dt>
-                        <dd class="col-sm-9"><code>@formCustomer.Id</code></dd>
-                    </dl>
-                }
-                else
-                {
-                    <EditForm Model="formCustomer" OnSubmit="SaveAsync">
-                        <div class="row g-3">
-                            <div class="col-md-12">
-                                <label class="form-label">Name</label>
-                                <InputText class="form-control" @bind-Value="formCustomer.Name" />
+                    <EditForm Model="formCustomer" OnSubmit="SaveAsync" class="customer-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Customer Name</label>
+                                <InputText class="form-input" @bind-Value="formCustomer.Name" placeholder="Enter customer name" />
+                                <small class="form-hint">Full name or company name</small>
                             </div>
-
-                            <div class="col-md-6">
-                                <label class="form-label">IDNO</label>
-                                <InputText class="form-control" @bind-Value="formCustomer.IDNO" />
-                            </div>
-
                         </div>
 
-                        @if (!string.IsNullOrWhiteSpace(formError))
-                        {
-                            <div class="alert alert-danger mt-3 mb-0">@formError</div>
-                        }
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">IDNO (Optional)</label>
+                                <InputText class="form-input" @bind-Value="formCustomer.IDNO" placeholder="Enter identification number" />
+                                <small class="form-hint">Tax ID, VAT number, or personal identification number</small>
+                            </div>
+                        </div>
 
-                        <div class="d-flex justify-content-end gap-2 mt-3">
-                            @if (panelMode == PanelMode.Edit)
-                            {
-                                <button type="button" class="btn btn-danger" @onclick="() => DeleteAsync(formCustomer.Id)">
-                                    Delete
-                                </button>
-                            }
-
-                            <button type="button" class="btn btn-secondary" @onclick="ClosePanel">Cancel</button>
-                            <button type="submit" class="btn btn-primary" disabled="@isSaving">
-                                @(panelMode == PanelMode.Create ? "Create" : "Save")
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" @onclick="CancelCreate">Cancel</button>
+                            <button type="submit" class="btn-primary" disabled="@isSaving">
+                                @if (isSaving)
+                                {
+                                    <span class="spinner spinner-sm"></span>
+                                    <span>Creating…</span>
+                                }
+                                else
+                                {
+                                    <span>Create Customer</span>
+                                }
                             </button>
                         </div>
                     </EditForm>
                 }
+                else if (selectedCustomer == null)
+                {
+                    @* EMPTY STATE *@
+                    <div class="empty-selection">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3Zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+                        </svg>
+                        <p>Select a customer to view details and manage</p>
+                    </div>
+                }
+                else if (isEditing)
+                {
+                    @* EDIT MODE *@
+                    <div class="details-header">
+                        <h2>Edit Customer</h2>
+                        <div class="header-actions">
+                            <button class="btn-delete" @onclick="() => DeleteCustomerAsync(selectedCustomer.Id)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
+                                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
+                                </svg>
+                                Delete
+                            </button>
+                            <button class="btn-close" @onclick="CancelEdit">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(formError))
+                    {
+                        <div class="alert alert-danger">@formError</div>
+                    }
+
+                    <EditForm Model="formCustomer" OnSubmit="SaveAsync" class="customer-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Customer Name</label>
+                                <InputText class="form-input" @bind-Value="formCustomer.Name" placeholder="Enter customer name" />
+                                <small class="form-hint">Full name or company name</small>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">IDNO (Optional)</label>
+                                <InputText class="form-input" @bind-Value="formCustomer.IDNO" placeholder="Enter identification number" />
+                                <small class="form-hint">Tax ID, VAT number, or personal identification number</small>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" @onclick="CancelEdit">Cancel</button>
+                            <button type="submit" class="btn-primary" disabled="@isSaving">
+                                @if (isSaving)
+                                {
+                                    <span class="spinner spinner-sm"></span>
+                                    <span>Saving…</span>
+                                }
+                                else
+                                {
+                                    <span>Save Changes</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+                }
+                else
+                {
+                    @* VIEW MODE *@
+                    <div class="details-header">
+                        <h2>@selectedCustomer.Name</h2>
+                        <button class="btn-edit" @onclick="StartEdit">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                            </svg>
+                            Edit
+                        </button>
+                    </div>
+
+                    <div class="customer-details">
+                        <div class="detail-section">
+                            <h3>Customer Information</h3>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <label>Customer ID</label>
+                                    <div class="detail-value">
+                                        <code>@selectedCustomer.Id</code>
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Name</label>
+                                    <div class="detail-value">@selectedCustomer.Name</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(selectedCustomer.IDNO))
+                        {
+                            <div class="detail-section">
+                                <h3>Identification</h3>
+                                <div class="detail-grid">
+                                    <div class="detail-item">
+                                        <label>IDNO</label>
+                                        <div class="detail-value">
+                                            <code class="idno-code">@selectedCustomer.IDNO</code>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="info-box">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+                            </svg>
+                            <span>Customer record created. Use this information for orders and invoicing.</span>
+                        </div>
+                    </div>
+                }
             </div>
         </div>
     }
-
-    <div class="card">
-        <div class="card-header">
-            Customers
-        </div>
-
-        <div class="table-responsive">
-            <table class="table table-striped table-hover align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>IDNO</th>
-                        <th style="width: 220px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (FilteredCustomers.Any())
-                    {
-                        @foreach (var customer in FilteredCustomers)
-                        {
-                            <tr>
-                                <td>@customer.Name</td>
-                                <td>@customer.IDNO</td>
-                                @* <td>@customer.IDNO</td> *@
-                                <td class="text-end">
-                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ViewCustomer(customer)">View</button>
-                                    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(customer)">Edit</button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(customer.Id)">Delete</button>
-                                </td>
-                            </tr>
-                        }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="4" class="text-center text-muted py-4">
-                                No customers found.
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
 </div>
 
 @code {
-    private enum PanelMode
-    {
-        Create,
-        Edit,
-        View
-    }
-
     private readonly List<CustomerDTO> customers = new();
+    private CustomerDTO? selectedCustomer = null;
+    private CustomerDTO formCustomer = CreateEmptyCustomer();
 
     private string searchTerm = string.Empty;
     private bool isLoading;
     private bool isSaving;
-    private bool showPanel;
-    private PanelMode panelMode;
+    private bool isCreating;
+    private bool isEditing;
     private string? pageError;
     private string? formError;
-    private CustomerDTO formCustomer = CreateEmptyCustomer();
 
     private IEnumerable<CustomerDTO> FilteredCustomers => customers
         .Where(customer => string.IsNullOrWhiteSpace(searchTerm)
             || (customer.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (customer.IDNO.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            || (customer.IDNO?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
             || customer.Id.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
         .OrderBy(customer => customer.Name);
 
@@ -217,6 +312,13 @@
         {
             customers.Clear();
             customers.AddRange(await CustomerService.GetAllAsync());
+
+            // Update selected customer if it still exists
+            if (selectedCustomer != null)
+            {
+                var updated = customers.FirstOrDefault(c => c.Id == selectedCustomer.Id);
+                selectedCustomer = updated;
+            }
         }
         catch (Exception ex)
         {
@@ -230,39 +332,48 @@
         }
     }
 
+    private void SelectCustomer(CustomerDTO customer)
+    {
+        selectedCustomer = customer;
+        formCustomer = Clone(customer);
+        isCreating = false;
+        isEditing = false;
+        formError = null;
+    }
+
     private void StartCreate()
     {
         formCustomer = CreateEmptyCustomer();
+        selectedCustomer = null;
         formError = null;
-        panelMode = PanelMode.Create;
-        showPanel = true;
+        isCreating = true;
+        isEditing = false;
     }
 
-    private void ViewCustomer(CustomerDTO customer)
+    private void CancelCreate()
     {
-        formCustomer = Clone(customer);
+        isCreating = false;
         formError = null;
-        panelMode = PanelMode.View;
-        showPanel = true;
+        isSaving = false;
+        formCustomer = CreateEmptyCustomer();
     }
 
-    private void StartEdit(CustomerDTO customer)
+    private void StartEdit()
     {
-        formCustomer = Clone(customer);
-        formError = null;
-        panelMode = PanelMode.Edit;
-        showPanel = true;
-    }
+        if (selectedCustomer == null) return;
 
-    private void SwitchToEdit()
-    {
-        panelMode = PanelMode.Edit;
+        formCustomer = Clone(selectedCustomer);
+        isEditing = true;
+        isCreating = false;
         formError = null;
     }
 
-    private void ClosePanel()
+    private void CancelEdit()
     {
-        showPanel = false;
+        if (selectedCustomer == null) return;
+
+        formCustomer = Clone(selectedCustomer);
+        isEditing = false;
         formError = null;
         isSaving = false;
     }
@@ -281,20 +392,22 @@
 
         try
         {
-            if (panelMode == PanelMode.Create)
+            if (isCreating)
             {
                 var created = await CustomerService.CreateAsync(formCustomer);
                 customers.Add(created);
+                selectedCustomer = created;
                 formCustomer = Clone(created);
+                isCreating = false;
             }
-            else
+            else if (isEditing)
             {
                 var updated = await CustomerService.UpdateAsync(formCustomer.Id, formCustomer);
                 SyncToList(updated);
+                selectedCustomer = updated;
                 formCustomer = Clone(updated);
+                isEditing = false;
             }
-
-            panelMode = PanelMode.View;
         }
         catch (Exception ex)
         {
@@ -307,9 +420,9 @@
         }
     }
 
-    private async Task DeleteAsync(Guid id)
+    private async Task DeleteCustomerAsync(Guid id)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "Delete this customer? This cannot be undone."))
+        if (!await JS.InvokeAsync<bool>("confirm", "Delete this customer?\n\nThis action cannot be undone."))
         {
             return;
         }
@@ -319,9 +432,10 @@
             await CustomerService.DeleteAsync(id);
             customers.RemoveAll(customer => customer.Id == id);
 
-            if (showPanel && formCustomer.Id == id)
+            if (selectedCustomer?.Id == id)
             {
-                ClosePanel();
+                selectedCustomer = null;
+                isEditing = false;
             }
 
             StateHasChanged();

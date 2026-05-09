@@ -1,53 +1,531 @@
-﻿/* ── Page Layout ── */
-.tenants-page {
-/*    padding: 2rem 2.5rem;*/
-    max-width: 100%;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+﻿.tenants-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    height: calc(100vh - 200px);
 }
 
 .page-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1.5rem;
+    gap: 0.75rem;
 }
 
 .header-left {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 0.75rem;
 }
 
 .page-title {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #0f172a;
     margin: 0;
-    letter-spacing: -0.02em;
+    font-size: 1.8rem;
 }
 
-.tenant-count {
-    font-size: 0.85rem;
-    color: #64748b;
-    background: #f1f5f9;
-    padding: 0.2rem 0.6rem;
+.count-badge {
+    padding: 0.25rem 0.6rem;
     border-radius: 999px;
+    background-color: #1b6ec2;
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.btn-refresh {
+    cursor: pointer;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: #f6f6f6;
+    color: #1b6ec2;
+    border-radius: 4px;
+    padding: 0.35rem 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     font-weight: 500;
 }
 
-/* ── Buttons ── */
+.btn-refresh:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .btn-create {
+    cursor: pointer;
+    border: none;
+    background: #1b6ec2;
+    color: white;
+    border-radius: 4px;
+    padding: 0.35rem 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 500;
+}
+
+.btn-create:hover {
+    background: #164f8a;
+}
+
+.loading-state,
+.empty-state {
+    border: 1px dashed rgba(0, 0, 0, 0.2);
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+    color: #4d4d4d;
+}
+
+.loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+}
+
+.spinner {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    border: 2px solid rgba(27, 110, 194, 0.2);
+    border-top-color: #1b6ec2;
+    animation: spin 0.9s linear infinite;
+    display: inline-block;
+}
+
+.spinner-sm {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-width: 1.5px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Master-Detail Layout */
+.master-detail-container {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 1.5rem;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Tenants List Panel */
+.tenants-list-panel {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    background: white;
+    overflow: hidden;
+}
+
+.panel-title {
+    margin: 0;
+    padding: 1rem 1.25rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.search-container {
+    position: relative;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.search-container svg {
+    color: #6c6c6c;
+    flex-shrink: 0;
+}
+
+.search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 0.95rem;
+    padding: 0.25rem 0;
+}
+
+.search-input::placeholder {
+    color: #9ca3af;
+}
+
+.clear-search {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    color: #6c6c6c;
+    transition: color 0.2s ease;
+}
+
+.clear-search:hover {
+    color: #1b6ec2;
+}
+
+.tenants-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.no-results {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: #6c6c6c;
+    font-size: 0.9rem;
+}
+
+.tenant-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    gap: 0.75rem;
+}
+
+.tenant-list-item:hover {
+    background: #f5f7fa;
+}
+
+.tenant-list-item.selected {
+    background: #e8f0fe;
+    border-left: 3px solid #1b6ec2;
+}
+
+.tenant-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.tenant-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tenant-key {
+    color: #6c6c6c;
+    font-size: 0.8rem;
+    margin-top: 0.2rem;
+}
+
+.tenant-key code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: 0.8rem;
+}
+
+/* Tenant Details Panel */
+.tenant-details-panel {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    background: white;
+    padding: 1.5rem;
+    overflow-y: auto;
+    gap: 1.5rem;
+}
+
+.empty-selection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #9ca3af;
+    gap: 1rem;
+}
+
+.empty-selection p {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.details-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.details-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.btn-close,
+.btn-delete {
+    background: none;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.btn-close {
+    color: #6c6c6c;
+}
+
+.btn-close:hover {
+    background: #f5f7fa;
+    border-color: #1b6ec2;
+    color: #1b6ec2;
+}
+
+.btn-delete {
+    color: #dc2626;
+}
+
+.btn-delete:hover {
+    background: #fee;
+    border-color: #dc2626;
+}
+
+/* Create Form */
+.tenant-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #1f2937;
+}
+
+.form-input {
+    padding: 0.65rem 0.9rem;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s ease;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #1b6ec2;
+    box-shadow: 0 0 0 3px rgba(27, 110, 194, 0.1);
+}
+
+.form-hint {
+    color: #6c6c6c;
+    font-size: 0.85rem;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.btn-secondary,
+.btn-primary {
+    padding: 0.6rem 1.25rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.55rem 1.1rem;
-    background: #1e40af;
-    color: #fff;
+}
+
+.btn-secondary {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    color: #374151;
+}
+
+.btn-secondary:hover {
+    background: #f5f7fa;
+}
+
+.btn-primary {
+    background: #1b6ec2;
     border: none;
-    border-radius: 8px;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #164f8a;
+}
+
+.btn-primary:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.alert {
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
     font-size: 0.9rem;
+}
+
+.alert-danger {
+    background: #fee;
+    color: #c33;
+    border: 1px solid #fcc;
+}
+
+/* Tenant Details */
+.tenant-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.detail-section h3 {
+    margin: 0;
+    font-size: 1.1rem;
     font-weight: 600;
+    color: #1f2937;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.detail-item.full-width {
+    grid-column: 1 / -1;
+}
+
+.detail-item label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6c6c6c;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.detail-value {
+    padding: 0.75rem 1rem;
+    background: #f8fafc;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    word-break: break-all;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.detail-value code {
+    flex: 1;
+    background: transparent;
+    padding: 0;
+    font-size: 0.9rem;
+    color: #1f2937;
+}
+
+.detail-value.credential {
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.btn-copy {
+    background: none;
+    border: none;
+    padding: 0.4rem;
     cursor: pointer;
+    color: #6c6c6c;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.btn-copy:hover {
+    background: #e8f0fe;
+    color: #1b6ec2;
+}
+
+.warning-box {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #92400e;
+}
+
+.warning-box svg {
+    flex-shrink: 0;
+    color: #f59e0b;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .master-detail-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+    }
+
+    .tenants-list-panel {
+        max-height: 300px;
+    }
+
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .header-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
     transition: background 0.15s, transform 0.1s;
 }
 

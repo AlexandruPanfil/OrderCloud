@@ -9,119 +9,247 @@
 
 <PageTitle>Tenants</PageTitle>
 
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h1 class="h3 mb-0">Tenants</h1>
-            <div class="text-muted">@FilteredTenants.Count() tenant@(FilteredTenants.Count() == 1 ? "" : "s")</div>
+<div class="tenants-page">
+    <div class="page-header">
+        <div class="header-left">
+            <h1 class="page-title">Tenants</h1>
+            <span class="count-badge">@FilteredTenants.Count() tenant@(FilteredTenants.Count() == 1 ? "" : "s")</span>
         </div>
-        <button class="btn btn-primary" @onclick="StartCreate">New Tenant</button>
+        <div class="header-actions">
+            <button class="btn-refresh" @onclick="LoadTenantsAsync" disabled="@isLoading" title="Refresh tenants">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z" />
+                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
+                </svg>
+                Refresh
+            </button>
+            <button class="btn-create" @onclick="StartCreate">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
+                New Tenant
+            </button>
+        </div>
     </div>
 
-    <div class="row g-2 mb-3">
-        <div class="col-md-8">
-            <input class="form-control" placeholder="Search tenants..." @bind="searchTerm" @bind:event="oninput" />
-        </div>
-        <div class="col-md-4">
-            <button class="btn btn-outline-secondary w-100" @onclick="LoadTenantsAsync" disabled="@isLoading">Refresh</button>
-        </div>
-    </div>
-
-    @if (showPanel)
+    @if (isLoading)
     {
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <strong>@(isViewMode ? "Tenant Details" : "Create Tenant")</strong>
-                <button class="btn btn-outline-secondary btn-sm" @onclick="ClosePanel">Close</button>
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <span>Loading tenants…</span>
+        </div>
+    }
+    else if (!tenants.Any())
+    {
+        <div class="empty-state">
+            <p>No tenants found. Create your first tenant to get started.</p>
+        </div>
+    }
+    else
+    {
+        <div class="master-detail-container">
+            <div class="tenants-list-panel">
+                <h2 class="panel-title">Tenants</h2>
+                <div class="search-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
+                    <input type="text" 
+                           class="search-input" 
+                           placeholder="Search tenants..." 
+                           @bind="searchTerm"
+                           @bind:event="oninput" />
+                    @if (!string.IsNullOrWhiteSpace(searchTerm))
+                    {
+                        <button class="clear-search" @onclick="() => searchTerm = string.Empty" title="Clear search">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                            </svg>
+                        </button>
+                    }
+                </div>
+                <div class="tenants-list">
+                    @if (!FilteredTenants.Any())
+                    {
+                        <div class="no-results">No tenants match your search</div>
+                    }
+                    else
+                    {
+                        @foreach (var tenant in FilteredTenants)
+                        {
+                            <div class="tenant-list-item @(selectedTenant?.Id == tenant.Id ? "selected" : "")" 
+                                 @onclick="() => SelectTenant(tenant)">
+                                <div class="tenant-info">
+                                    <div class="tenant-name">@tenant.Name</div>
+                                    <div class="tenant-key">
+                                        <code>@TruncateKey(tenant.ApiKey)</code>
+                                    </div>
+                                </div>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                                </svg>
+                            </div>
+                        }
+                    }
+                </div>
             </div>
-            <div class="card-body">
-                @if (!isViewMode)
+
+            <div class="tenant-details-panel">
+                @if (isCreating)
                 {
-                    <EditForm Model="formTenant" OnSubmit="HandleSubmitAsync">
-                        <div>
+                    <div class="details-header">
+                        <h2>Create New Tenant</h2>
+                        <button class="btn-close" @onclick="CancelCreate">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(formError))
+                    {
+                        <div class="alert alert-danger">@formError</div>
+                    }
+
+                    <EditForm Model="formTenant" OnSubmit="HandleSubmitAsync" class="tenant-form">
+                        <div class="form-group">
                             <label class="form-label">Tenant Name</label>
-                            <InputText class="form-control" @bind-Value="formTenant.Name" />
+                            <InputText class="form-input" @bind-Value="formTenant.Name" placeholder="Enter tenant name" />
+                            <small class="form-hint">Choose a unique and descriptive name for this tenant</small>
                         </div>
 
-                        @if (!string.IsNullOrWhiteSpace(formError))
-                        {
-                            <div class="alert alert-danger mt-3 mb-0">@formError</div>
-                        }
-
-                        <div class="d-flex justify-content-end gap-2 mt-3">
-                            <button type="button" class="btn btn-secondary" @onclick="ClosePanel">Cancel</button>
-                            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">Create</button>
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" @onclick="CancelCreate">Cancel</button>
+                            <button type="submit" class="btn-primary" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner spinner-sm"></span>
+                                    <span>Creating…</span>
+                                }
+                                else
+                                {
+                                    <span>Create Tenant</span>
+                                }
+                            </button>
                         </div>
                     </EditForm>
                 }
+                else if (selectedTenant == null)
+                {
+                    <div class="empty-selection">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M0 3a2 2 0 0 1 2-2h13.5a.5.5 0 0 1 0 1H15v2a1 1 0 0 1 1 1v8.5a1.5 1.5 0 0 1-1.5 1.5h-12A2.5 2.5 0 0 1 0 12.5V3zm1 1.732V12.5A1.5 1.5 0 0 0 2.5 14h12a.5.5 0 0 0 .5-.5V5H2a1.99 1.99 0 0 1-1-.268zM1 3a1 1 0 0 0 1 1h12V2H2a1 1 0 0 0-1 1z"/>
+                        </svg>
+                        <p>Select a tenant to view details and manage settings</p>
+                    </div>
+                }
                 else
                 {
-                    <dl class="row mb-0">
-                        <dt class="col-sm-3">Name</dt>
-                        <dd class="col-sm-9">@formTenant.Name</dd>
-                        <dt class="col-sm-3">API Key</dt>
-                        <dd class="col-sm-9"><code>@formTenant.ApiKey</code></dd>
-                        <dt class="col-sm-3">API Secret</dt>
-                        <dd class="col-sm-9"><code>@MaskSecret(formTenant.ApiSecret)</code></dd>
-                        <dt class="col-sm-3">Id</dt>
-                        <dd class="col-sm-9"><code>@formTenant.Id</code></dd>
-                    </dl>
+                    <div class="details-header">
+                        <h2>@selectedTenant.Name</h2>
+                        <button class="btn-delete" @onclick="() => DeleteTenantAsync(selectedTenant.Id, selectedTenant.Name)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
+                                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
+                            </svg>
+                            Delete
+                        </button>
+                    </div>
 
-                    <div class="d-flex justify-content-end gap-2 mt-3">
-                        <button type="button" class="btn btn-danger" @onclick="() => DeleteFromPanel(formTenant.Id, formTenant.Name)">Delete</button>
-                        <button type="button" class="btn btn-secondary" @onclick="ClosePanel">Close</button>
+                    <div class="tenant-details">
+                        <div class="detail-section">
+                            <h3>General Information</h3>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <label>Tenant ID</label>
+                                    <div class="detail-value">
+                                        <code>@selectedTenant.Id</code>
+                                        <button class="btn-copy" @onclick="() => CopyToClipboard(selectedTenant.Id.ToString())" title="Copy to clipboard">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                                <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                                                <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Tenant Name</label>
+                                    <div class="detail-value">@selectedTenant.Name</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="detail-section">
+                            <h3>API Credentials</h3>
+                            <div class="detail-grid">
+                                <div class="detail-item full-width">
+                                    <label>API Key</label>
+                                    <div class="detail-value credential">
+                                        <code>@selectedTenant.ApiKey</code>
+                                        <button class="btn-copy" @onclick="() => CopyToClipboard(selectedTenant.ApiKey)" title="Copy API Key">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                                <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                                                <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="detail-item full-width">
+                                    <label>API Secret</label>
+                                    <div class="detail-value credential">
+                                        <code>@(showSecret ? selectedTenant.ApiSecret : MaskSecret(selectedTenant.ApiSecret))</code>
+                                        <button class="btn-copy" @onclick="ToggleSecretVisibility" title="@(showSecret ? "Hide" : "Show") secret">
+                                            @if (showSecret)
+                                            {
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                                    <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/>
+                                                    <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/>
+                                                    <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
+                                                </svg>
+                                            }
+                                            else
+                                            {
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                                                    <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                                                </svg>
+                                            }
+                                        </button>
+                                        @if (showSecret)
+                                        {
+                                            <button class="btn-copy" @onclick="() => CopyToClipboard(selectedTenant.ApiSecret)" title="Copy API Secret">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                                    <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                                                    <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                                                </svg>
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="warning-box">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                                </svg>
+                                <span>Keep these credentials secure. Never share them publicly or commit them to version control.</span>
+                            </div>
+                        </div>
                     </div>
                 }
             </div>
         </div>
     }
-
-    <div class="card">
-        <div class="card-header">Assigned Tenants</div>
-        <div class="table-responsive">
-            <table class="table table-striped table-hover align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>API Key</th>
-                        <th style="width: 180px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (FilteredTenants.Any())
-                    {
-                        @foreach (var tenant in FilteredTenants)
-                        {
-                            <tr>
-                                <td>@tenant.Name</td>
-                                <td><code>@TruncateKey(tenant.ApiKey)</code></td>
-                                <td class="text-end">
-                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ViewTenant(tenant)">View</button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(tenant.Id, tenant.Name)">Delete</button>
-                                </td>
-                            </tr>
-                        }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="3" class="text-center text-muted py-4">No tenants found.</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
 </div>
 
 @code {
     private readonly List<TenantDTO> tenants = new();
     private string searchTerm = string.Empty;
     private TenantDTO formTenant = new();
+    private TenantDTO? selectedTenant = null;
     private bool isLoading;
     private bool isSubmitting;
-    private bool showPanel;
-    private bool isViewMode;
+    private bool isCreating;
+    private bool showSecret;
     private string? formError;
 
     private Guid? CurrentTenantId => TenantSelectionService.SelectedTenantId;
@@ -148,12 +276,27 @@
             await TenantSelectionService.RefreshAsync();
             tenants.Clear();
             tenants.AddRange(TenantSelectionService.AvailableTenants);
+
+            // Update selected tenant if it still exists
+            if (selectedTenant != null)
+            {
+                var updated = tenants.FirstOrDefault(t => t.Id == selectedTenant.Id);
+                selectedTenant = updated;
+            }
         }
         finally
         {
             isLoading = false;
             StateHasChanged();
         }
+    }
+
+    private void SelectTenant(TenantDTO tenant)
+    {
+        selectedTenant = tenant;
+        isCreating = false;
+        showSecret = false;
+        formError = null;
     }
 
     private void StartCreate()
@@ -166,33 +309,21 @@
             ApiSecret = string.Empty
         };
 
+        selectedTenant = null;
         formError = null;
-        isViewMode = false;
-        showPanel = true;
+        isCreating = true;
     }
 
-    private void ViewTenant(TenantDTO tenant)
+    private void CancelCreate()
     {
-        formTenant = new TenantDTO
-        {
-            Id = tenant.Id,
-            Name = tenant.Name,
-            ApiKey = tenant.ApiKey,
-            ApiSecret = tenant.ApiSecret,
-            ApplicationUserId = tenant.ApplicationUserId,
-            ApplicationUserIds = tenant.ApplicationUserIds.ToList()
-        };
-
-        formError = null;
-        isViewMode = true;
-        showPanel = true;
-    }
-
-    private void ClosePanel()
-    {
-        showPanel = false;
+        isCreating = false;
         formError = null;
         isSubmitting = false;
+    }
+
+    private void ToggleSecretVisibility()
+    {
+        showSecret = !showSecret;
     }
 
     private async Task HandleSubmitAsync()
@@ -226,8 +357,8 @@
             });
 
             await LoadTenantsAsync();
-            formTenant = created;
-            isViewMode = true;
+            selectedTenant = created;
+            isCreating = false;
         }
         catch (Exception ex)
         {
@@ -239,9 +370,9 @@
         }
     }
 
-    private async Task DeleteAsync(Guid id, string? name)
+    private async Task DeleteTenantAsync(Guid id, string? name)
     {
-        var confirm = await JS.InvokeAsync<bool>("confirm", $"Delete tenant '{name}'?");
+        var confirm = await JS.InvokeAsync<bool>("confirm", $"Delete tenant '{name}'?\n\nThis action cannot be undone.");
         if (!confirm)
         {
             return;
@@ -252,9 +383,9 @@
             await TenantService.DeleteAsync(id);
             await LoadTenantsAsync();
 
-            if (showPanel && formTenant.Id == id)
+            if (selectedTenant?.Id == id)
             {
-                ClosePanel();
+                selectedTenant = null;
             }
         }
         catch (Exception ex)
@@ -263,10 +394,16 @@
         }
     }
 
-    private async Task DeleteFromPanel(Guid id, string? name)
+    private async Task CopyToClipboard(string text)
     {
-        ClosePanel();
-        await DeleteAsync(id, name);
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+        catch
+        {
+            // Fallback or ignore
+        }
     }
 
     private void OnTenantChanged()
@@ -293,7 +430,7 @@
             return "—";
         }
 
-        return new string('*', Math.Min(secret.Length, 24));
+        return new string('•', Math.Min(secret.Length, 32));
     }
 
     public void Dispose()

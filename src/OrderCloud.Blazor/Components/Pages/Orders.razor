@@ -10,310 +10,562 @@
 
 <PageTitle>Orders</PageTitle>
 
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h1 class="h3 mb-0">Orders</h1>
-            <div class="text-muted">@FilteredOrders.Count() order@(FilteredOrders.Count() == 1 ? "" : "s")</div>
+<div class="orders-page">
+    <div class="page-header">
+        <div class="header-left">
+            <h1 class="page-title">Orders</h1>
+            <span class="count-badge">@FilteredOrders.Count() order@(FilteredOrders.Count() == 1 ? "" : "s")</span>
         </div>
-        <button class="btn btn-primary" @onclick="StartCreate">New Order</button>
-    </div>
-
-    <div class="row g-2 mb-3">
-        <div class="col-md-6">
-            <input class="form-control" placeholder="Search by ID or status..." @bind="searchTerm" @bind:event="oninput" />
-        </div>
-        <div class="col-md-3">
-            <select class="form-select" @bind="statusFilter">
-                <option value="">All statuses</option>
-                @foreach (var status in Statuses)
-                {
-                    <option value="@status">@status</option>
-                }
-            </select>
-        </div>
-        <div class="col-md-3">
-            <button class="btn btn-outline-secondary w-100" @onclick="LoadOrdersAsync" disabled="@isLoading">Refresh</button>
+        <div class="header-actions">
+            <button class="btn-refresh" @onclick="LoadOrdersAsync" disabled="@isLoading" title="Refresh orders">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z" />
+                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
+                </svg>
+                Refresh
+            </button>
+            <button class="btn-create" @onclick="StartCreate">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
+                New Order
+            </button>
         </div>
     </div>
 
-    @if (!string.IsNullOrWhiteSpace(formError) && !showPanel)
+    @if (!string.IsNullOrWhiteSpace(formError) && !isCreating && !isEditing && selectedOrder == null)
     {
         <div class="alert alert-danger">@formError</div>
     }
 
-    @if (showPanel)
+    @if (isLoading)
     {
-        <!-- Размытый фон позади формы -->
-        <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 1000;" @onclick="ClosePanel"></div>
-        
-        <!-- Контейнер формы поверх списка -->
-        <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95%; max-width: 900px; max-height: 90vh; overflow-y: auto; z-index: 1001; border-radius: var(--bs-border-radius);">
-            <div class="card shadow-lg m-0">
-                <div class="card-header d-flex justify-content-between align-items-center sticky-top bg-light border-bottom" style="z-index: 1020;">
-                    <strong>@(panelMode == PanelMode.Create ? "Create Order" : panelMode == PanelMode.Edit ? "Edit Order" : "View Order")</strong>
-                    <div class="d-flex gap-2">
-                        @if (panelMode == PanelMode.View && formOrder.Status != "Completed")
-                        {
-                            <button class="btn btn-outline-primary btn-sm" @onclick="SwitchToEdit">Edit</button>
-                        }
-                        <button class="btn btn-outline-secondary btn-sm" @onclick="ClosePanel">Close</button>
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <span>Loading orders…</span>
+        </div>
+    }
+    else if (!orders.Any())
+    {
+        <div class="empty-state">
+            <p>No orders found. Create your first order to get started.</p>
+        </div>
+    }
+    else
+    {
+        <div class="master-detail-container">
+            <div class="orders-list-panel">
+                <h2 class="panel-title">Orders</h2>
+
+                <div class="filters-container">
+                    <div class="filter-group">
+                        <label class="filter-label">Status</label>
+                        <select class="filter-select" @bind="statusFilter">
+                            <option value="">All Statuses</option>
+                            @foreach (var status in Statuses)
+                            {
+                                <option value="@status">@status</option>
+                            }
+                        </select>
                     </div>
                 </div>
-                <div class="card-body">
-                    <EditForm Model="formOrder" OnSubmit="HandleSubmitAsync">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Status</label>
-                                <select class="form-select" @bind="formOrder.Status" disabled="@IsReadOnly">
-                                    @foreach (var status in Statuses)
-                                    {
-                                        <option value="@status">@status</option>
-                                    }
-                                </select>
+
+                <div class="search-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
+                    <input type="text" 
+                           class="search-input" 
+                           placeholder="Search orders..." 
+                           @bind="searchTerm"
+                           @bind:event="oninput" />
+                    @if (!string.IsNullOrWhiteSpace(searchTerm))
+                    {
+                        <button class="clear-search" @onclick="() => searchTerm = string.Empty" title="Clear search">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                            </svg>
+                        </button>
+                    }
+                </div>
+
+                <div class="orders-list">
+                    @if (!FilteredOrders.Any())
+                    {
+                        <div class="no-results">No orders match your search or filter</div>
+                    }
+                    else
+                    {
+                        @foreach (var order in FilteredOrders)
+                        {
+                            <div class="order-list-item @(selectedOrder?.Id == order.Id ? "selected" : "")" 
+                                 @onclick="() => SelectOrder(order)">
+                                <div class="order-info">
+                                    <div class="order-header">
+                                        <span class="order-id">#@order.Id.ToString()[..8]</span>
+                                        <span class="status-badge status-@order.Status?.ToLower()">@order.Status</span>
+                                    </div>
+                                    <div class="order-meta">
+                                        <span class="order-total">$@order.Total.ToString("F2")</span>
+                                        <span class="order-separator">•</span>
+                                        <span class="order-items">@order.Items?.Count ?? 0 item@((order.Items?.Count ?? 0) == 1 ? "" : "s")</span>
+                                    </div>
+                                    <div class="order-tenant">@ResolveTenantName(order.TenantId)</div>
+                                </div>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                                </svg>
                             </div>
-                            
-                            <div class="col-md-6">
-                                <label class="form-label">Tenant</label>
-                                <select class="form-select" @bind="TenantIdStr" disabled="@IsReadOnly">
-                                    <option value="">-- Select tenant --</option>
-                                    @foreach (var tenant in tenants)
-                                    {
-                                        <option value="@tenant.Id">@tenant.Name</option>
-                                    }
-                                </select>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="order-details-panel">
+                @if (isCreating)
+                {
+                    @* CREATE MODE *@
+                    <div class="details-header">
+                        <h2>Create New Order</h2>
+                        <button class="btn-close" @onclick="CancelCreate">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(formError))
+                    {
+                        <div class="alert alert-danger">@formError</div>
+                    }
+
+                    <EditForm Model="formOrder" OnSubmit="HandleSubmitAsync" class="order-form">
+                        <div class="form-section">
+                            <h3>Order Information</h3>
+                            <div class="form-row two-columns">
+                                <div class="form-group">
+                                    <label class="form-label">Status</label>
+                                    <select class="form-select" @bind="formOrder.Status">
+                                        @foreach (var status in Statuses)
+                                        {
+                                            <option value="@status">@status</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Tenant</label>
+                                    <select class="form-select" @bind="TenantIdStr">
+                                        <option value="">Select tenant</option>
+                                        @foreach (var tenant in tenants)
+                                        {
+                                            <option value="@tenant.Id">@tenant.Name</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row two-columns">
+                                <div class="form-group">
+                                    <label class="form-label">Local User</label>
+                                    <select class="form-select" @bind="LocalUserIdStr" disabled="@(formOrder.TenantId == Guid.Empty)">
+                                        <option value="">Select local user</option>
+                                        @foreach (var localUser in AvailableLocalUsers)
+                                        {
+                                            <option value="@localUser.Id">@localUser.Name</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Customer (Optional)</h3>
+                            <div class="form-row two-columns">
+                                <div class="form-group">
+                                    <label class="form-label">Customer Name</label>
+                                    <InputText class="form-input" @bind-Value="formCustomerName" placeholder="Optional" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Customer IDNO</label>
+                                    <InputText class="form-input" @bind-Value="formCustomerIdNo" placeholder="Optional" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="section-header-with-action">
+                                <h3>Order Items</h3>
+                                <button type="button" class="btn-add-item" @onclick="AddItem">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                                    </svg>
+                                    Add Item
+                                </button>
                             </div>
 
-                            <div class="col-md-6">
-                                <label class="form-label">Local User</label>
-                                <select class="form-select" @bind="LocalUserIdStr" disabled="@(IsReadOnly || formOrder.TenantId == Guid.Empty)">
-                                    <option value="">-- Select local user --</option>
-                                    @foreach (var localUser in AvailableLocalUsers)
-                                    {
-                                        <option value="@localUser.Id">@localUser.Name</option>
-                                    }
-                                </select>
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label">Customer Name</label>
-                                <InputText class="form-control" @bind-Value="formCustomerName" disabled="@IsReadOnly" placeholder="Optional" />
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label">Customer IDNO</label>
-                                <InputText class="form-control" @bind-Value="formCustomerIdNo" disabled="@IsReadOnly" placeholder="Optional" />
-                            </div>
-                            
-                            @if (panelMode != PanelMode.Create)
+                            @if (!formOrder.Items.Any())
                             {
-                                <div class="col-md-6">
-                                    <label class="form-label">Created At</label>
-                                    <div class="form-control bg-light">@(formOrder.CreatedAt == default ? "—" : formOrder.CreatedAt.ToString("MMM dd, yyyy HH:mm"))</div>
+                                <div class="empty-items">No items added yet</div>
+                            }
+                            else
+                            {
+                                <div class="items-table">
+                                    @foreach (var item in formOrder.Items)
+                                    {
+                                        <div class="item-row">
+                                            <div class="item-field item-name">
+                                                <label>Name</label>
+                                                <InputText class="form-input" @bind-Value="item.Name" required />
+                                            </div>
+                                            <div class="item-field item-price">
+                                                <label>Price</label>
+                                                <InputNumber class="form-input" @bind-Value="item.Price" @bind-Value:after="RecalculateTotal" />
+                                            </div>
+                                            <div class="item-field item-qty">
+                                                <label>Qty</label>
+                                                <InputNumber class="form-input" @bind-Value="item.Quantity" @bind-Value:after="RecalculateTotal" />
+                                            </div>
+                                            <div class="item-field item-tva">
+                                                <label>TVA</label>
+                                                <select class="form-select" @bind="item.TVA">
+                                                    <option value="0%">0%</option>
+                                                    <option value="8%">8%</option>
+                                                    <option value="12%">12%</option>
+                                                    <option value="20%">20%</option>
+                                                </select>
+                                            </div>
+                                            <div class="item-field item-total">
+                                                <label>Total</label>
+                                                <div class="total-value">$@((item.Price * item.Quantity).ToString("F2"))</div>
+                                            </div>
+                                            <button type="button" class="btn-remove-item" @onclick="() => RemoveItem(item)" title="Remove item">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="order-total-display">
+                                    <span>Order Total:</span>
+                                    <span class="total-amount">$@formOrder.Total.ToString("F2")</span>
                                 </div>
                             }
                         </div>
 
-                        <hr class="my-4" />
-                        
-                        <h5 class="mb-3">Order Items</h5>
-                        <div class="table-responsive mb-3">
-                            <table class="table table-sm table-bordered align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Name</th>
-                                        <th style="width: 120px;">Price</th>
-                                        <th style="width: 100px;">Qty</th>
-                                        <th style="width: 120px;">TVA</th>
-                                        <th style="width: 120px;">Total</th>
-                                        @if (!IsReadOnly)
-                                        {
-                                            <th style="width: 50px;"></th>
-                                        }
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var item in formOrder.Items)
-                                    {
-                                        <tr>
-                                            <td>
-                                                @if (IsReadOnly)
-                                                {
-                                                    @item.Name
-                                                }
-                                                else
-                                                {
-                                                    <InputText class="form-control form-control-sm" @bind-Value="item.Name" required />
-                                                }
-                                            </td>
-                                            <td>
-                                                @if (IsReadOnly)
-                                                {
-                                                    @item.Price.ToString("F2")
-                                                }
-                                                else
-                                                {
-                                                    <InputNumber class="form-control form-control-sm" @bind-Value="item.Price" @bind-Value:after="RecalculateTotal" />
-                                                }
-                                            </td>
-                                            <td>
-                                                @if (IsReadOnly)
-                                                {
-                                                    @item.Quantity
-                                                }
-                                                else
-                                                {
-                                                    <InputNumber class="form-control form-control-sm" @bind-Value="item.Quantity" @bind-Value:after="RecalculateTotal" />
-                                                }
-                                            </td>
-                                            <td>
-                                                @if (IsReadOnly)
-                                                {
-                                                    @item.TVA
-                                                }
-                                                else
-                                                {
-                                                    <select class="form-select form-select-sm" @bind="item.TVA">
-                                                        <option value="0%">0%</option>
-                                                        <option value="8%">8%</option>
-                                                        <option value="12%">12%</option>
-                                                        <option value="20%">20%</option>
-                                                    </select>
-                                                }
-                                            </td>
-                                            <td>$@((item.Price * item.Quantity).ToString("F2"))</td>
-                                            @if (!IsReadOnly)
-                                            {
-                                                <td class="text-center">
-                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveItem(item)">
-                                                        <i class="bi bi-trash"></i> &times;
-                                                    </button>
-                                                </td>
-                                            }
-                                        </tr>
-                                    }
-                                    @if (!formOrder.Items.Any())
-                                    {
-                                        <tr>
-                                            <td colspan="@(IsReadOnly ? 5 : 6)" class="text-center text-muted py-3">No items added.</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <td colspan="4" class="text-end fw-bold align-middle">Order Total:</td>
-                                        <td class="fw-bold fs-5">$@formOrder.Total.ToString("F2")</td>
-                                        @if (!IsReadOnly) { <td></td> }
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-
-                        @if (!IsReadOnly)
-                        {
-                            <button type="button" class="btn btn-sm btn-outline-primary mb-3" @onclick="AddItem">Add Item</button>
-                        }
-
-                        @if (!string.IsNullOrWhiteSpace(formError))
-                        {
-                            <div class="alert alert-danger mt-3 mb-0">@formError</div>
-                        }
-
-                        <div class="d-flex justify-content-end gap-2 mt-3">
-                            @if (panelMode == PanelMode.Edit)
-                            {
-                                <button type="button" class="btn btn-danger" @onclick="() => DeleteFromPanel(formOrder.Id)">Delete Order</button>
-                            }
-                            
-                            <button type="button" class="btn btn-secondary" @onclick="ClosePanel">Close</button>
-                            
-                            @if (!IsReadOnly)
-                            {
-                                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
-                                    @(panelMode == PanelMode.Create ? "Create Order" : "Save Changes")
-                                </button>
-                            }
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" @onclick="CancelCreate">Cancel</button>
+                            <button type="submit" class="btn-primary" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner spinner-sm"></span>
+                                    <span>Creating…</span>
+                                }
+                                else
+                                {
+                                    <span>Create Order</span>
+                                }
+                            </button>
                         </div>
                     </EditForm>
-                </div>
+                }
+                else if (selectedOrder == null)
+                {
+                    @* EMPTY STATE *@
+                    <div class="empty-selection">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM3.102 4l1.313 7h8.17l1.313-7H3.102zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                        </svg>
+                        <p>Select an order to view details and manage</p>
+                    </div>
+                }
+                else if (isEditing)
+                {
+                    @* EDIT MODE *@
+                    <div class="details-header">
+                        <h2>Edit Order</h2>
+                        <div class="header-actions">
+                            <button class="btn-delete" @onclick="() => DeleteOrderAsync(selectedOrder.Id)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
+                                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
+                                </svg>
+                                Delete
+                            </button>
+                            <button class="btn-close" @onclick="CancelEdit">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(formError))
+                    {
+                        <div class="alert alert-danger">@formError</div>
+                    }
+
+                    <EditForm Model="formOrder" OnSubmit="HandleSubmitAsync" class="order-form">
+                        <div class="form-section">
+                            <h3>Order Information</h3>
+                            <div class="form-row two-columns">
+                                <div class="form-group">
+                                    <label class="form-label">Status</label>
+                                    <select class="form-select" @bind="formOrder.Status">
+                                        @foreach (var status in Statuses)
+                                        {
+                                            <option value="@status">@status</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Tenant</label>
+                                    <select class="form-select" @bind="TenantIdStr">
+                                        <option value="">Select tenant</option>
+                                        @foreach (var tenant in tenants)
+                                        {
+                                            <option value="@tenant.Id">@tenant.Name</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row two-columns">
+                                <div class="form-group">
+                                    <label class="form-label">Local User</label>
+                                    <select class="form-select" @bind="LocalUserIdStr" disabled="@(formOrder.TenantId == Guid.Empty)">
+                                        <option value="">Select local user</option>
+                                        @foreach (var localUser in AvailableLocalUsers)
+                                        {
+                                            <option value="@localUser.Id">@localUser.Name</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Created At</label>
+                                    <div class="form-value">@(formOrder.CreatedAt == default ? "—" : formOrder.CreatedAt.ToString("MMM dd, yyyy HH:mm"))</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Customer (Optional)</h3>
+                            <div class="form-row two-columns">
+                                <div class="form-group">
+                                    <label class="form-label">Customer Name</label>
+                                    <InputText class="form-input" @bind-Value="formCustomerName" placeholder="Optional" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Customer IDNO</label>
+                                    <InputText class="form-input" @bind-Value="formCustomerIdNo" placeholder="Optional" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <div class="section-header-with-action">
+                                <h3>Order Items</h3>
+                                <button type="button" class="btn-add-item" @onclick="AddItem">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                                    </svg>
+                                    Add Item
+                                </button>
+                            </div>
+
+                            @if (!formOrder.Items.Any())
+                            {
+                                <div class="empty-items">No items added yet</div>
+                            }
+                            else
+                            {
+                                <div class="items-table">
+                                    @foreach (var item in formOrder.Items)
+                                    {
+                                        <div class="item-row">
+                                            <div class="item-field item-name">
+                                                <label>Name</label>
+                                                <InputText class="form-input" @bind-Value="item.Name" required />
+                                            </div>
+                                            <div class="item-field item-price">
+                                                <label>Price</label>
+                                                <InputNumber class="form-input" @bind-Value="item.Price" @bind-Value:after="RecalculateTotal" />
+                                            </div>
+                                            <div class="item-field item-qty">
+                                                <label>Qty</label>
+                                                <InputNumber class="form-input" @bind-Value="item.Quantity" @bind-Value:after="RecalculateTotal" />
+                                            </div>
+                                            <div class="item-field item-tva">
+                                                <label>TVA</label>
+                                                <select class="form-select" @bind="item.TVA">
+                                                    <option value="0%">0%</option>
+                                                    <option value="8%">8%</option>
+                                                    <option value="12%">12%</option>
+                                                    <option value="20%">20%</option>
+                                                </select>
+                                            </div>
+                                            <div class="item-field item-total">
+                                                <label>Total</label>
+                                                <div class="total-value">$@((item.Price * item.Quantity).ToString("F2"))</div>
+                                            </div>
+                                            <button type="button" class="btn-remove-item" @onclick="() => RemoveItem(item)" title="Remove item">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="order-total-display">
+                                    <span>Order Total:</span>
+                                    <span class="total-amount">$@formOrder.Total.ToString("F2")</span>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" @onclick="CancelEdit">Cancel</button>
+                            <button type="submit" class="btn-primary" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner spinner-sm"></span>
+                                    <span>Saving…</span>
+                                }
+                                else
+                                {
+                                    <span>Save Changes</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+                }
+                else
+                {
+                    @* VIEW MODE *@
+                    <div class="details-header">
+                        <h2>Order #@selectedOrder.Id.ToString()[..8]</h2>
+                        @if (selectedOrder.Status != "Completed")
+                        {
+                            <button class="btn-edit" @onclick="StartEdit">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                                </svg>
+                                Edit
+                            </button>
+                        }
+                    </div>
+
+                    <div class="order-details">
+                        <div class="detail-section">
+                            <h3>Order Information</h3>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <label>Order ID</label>
+                                    <div class="detail-value"><code>@selectedOrder.Id</code></div>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Status</label>
+                                    <div class="detail-value">
+                                        <span class="status-badge status-@selectedOrder.Status?.ToLower()">@selectedOrder.Status</span>
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Tenant</label>
+                                    <div class="detail-value">@ResolveTenantName(selectedOrder.TenantId)</div>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Local User</label>
+                                    <div class="detail-value">@(selectedOrder.LocalUser?.Name ?? "—")</div>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Created At</label>
+                                    <div class="detail-value">@(selectedOrder.CreatedAt == default ? "—" : selectedOrder.CreatedAt.ToString("MMM dd, yyyy HH:mm"))</div>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Total Amount</label>
+                                    <div class="detail-value price-value">$@selectedOrder.Total.ToString("F2")</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (selectedOrder.Customer != null && !string.IsNullOrWhiteSpace(selectedOrder.Customer.Name))
+                        {
+                            <div class="detail-section">
+                                <h3>Customer Information</h3>
+                                <div class="detail-grid">
+                                    <div class="detail-item">
+                                        <label>Customer Name</label>
+                                        <div class="detail-value">@selectedOrder.Customer.Name</div>
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(selectedOrder.Customer.IDNO))
+                                    {
+                                        <div class="detail-item">
+                                            <label>Customer IDNO</label>
+                                            <div class="detail-value">@selectedOrder.Customer.IDNO</div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        <div class="detail-section">
+                            <h3>Order Items</h3>
+                            @if (!selectedOrder.Items?.Any() ?? true)
+                            {
+                                <div class="empty-items">No items in this order</div>
+                            }
+                            else
+                            {
+                                <div class="items-detail-table">
+                                    <div class="items-detail-header">
+                                        <span>Name</span>
+                                        <span>Price</span>
+                                        <span>Qty</span>
+                                        <span>TVA</span>
+                                        <span>Total</span>
+                                    </div>
+                                    @foreach (var item in selectedOrder.Items)
+                                    {
+                                        <div class="items-detail-row">
+                                            <span class="item-name">@item.Name</span>
+                                            <span>$@item.Price.ToString("F2")</span>
+                                            <span>@item.Quantity</span>
+                                            <span>@item.TVA</span>
+                                            <span class="item-total">$@((item.Price * item.Quantity).ToString("F2"))</span>
+                                        </div>
+                                    }
+                                    <div class="items-detail-footer">
+                                        <span>Order Total:</span>
+                                        <span class="total-amount">$@selectedOrder.Total.ToString("F2")</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
             </div>
         </div>
     }
-
-    <div class="card">
-        <div class="card-header">All Orders</div>
-        <div class="table-responsive">
-            <table class="table table-striped table-hover align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Status</th>
-                        <th>Tenant</th>
-                        <th>Total</th>
-                        <th>Created</th>
-                        <th style="width: 220px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (FilteredOrders.Any())
-                    {
-                        @foreach (var order in FilteredOrders)
-                        {
-                            <tr>
-                                <td><code>@order.Id.ToString()[..8]</code></td>
-                                <td>
-                                    <span class="badge @(order.Status == "Completed" ? "bg-success" : "bg-primary")">
-                                        @order.Status
-                                    </span>
-                                </td>
-                                <td>@ResolveTenantName(order.TenantId)</td>
-                                <td>$@order.Total.ToString("F2")</td>
-                                <td>@(order.CreatedAt == default ? "—" : order.CreatedAt.ToString("MMM dd, yyyy"))</td>
-                                <td class="text-end">
-                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ViewOrder(order)">View</button>
-                                    @if (order.Status != "Completed")
-                                    {
-                                        <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(order)">Edit</button>
-                                    }
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(order.Id)">Delete</button>
-                                </td>
-                            </tr>
-                        }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="6" class="text-center text-muted py-4">No orders found.</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
 </div>
 
 @code {
-    private enum PanelMode { Create, Edit, View }
-
     private static readonly string[] Statuses = ["Draft", "Pending", "Processing", "Completed", "Cancelled"];
 
     private readonly List<OrderDTO> orders = new();
     private List<TenantDTO> tenants = new();
     private List<LocalUserDTO> localUsers = new();
-    
+
+    private OrderDTO? selectedOrder = null;
+    private OrderDTO formOrder = CreateEmptyOrder();
+
     private string searchTerm = string.Empty;
     private string statusFilter = string.Empty;
     private bool isLoading;
     private bool isSubmitting;
-    private bool showPanel;
+    private bool isCreating;
+    private bool isEditing;
     private string? formError;
-    private PanelMode panelMode;
-    private OrderDTO formOrder = CreateEmptyOrder();
 
     private string formCustomerName = string.Empty;
     private string? formCustomerIdNo;
-
-    private bool IsReadOnly => panelMode == PanelMode.View || formOrder.Status == "Completed";
 
     private string TenantIdStr
     {
@@ -367,8 +619,8 @@
     private void OnTenantChanged()
     {
         LoadTenants();
-        
-        if (showPanel && panelMode == PanelMode.Create)
+
+        if (isCreating)
         {
             formOrder.TenantId = CurrentTenantId ?? Guid.Empty;
             formOrder.LocalUserId = null;
@@ -382,12 +634,6 @@
     {
         await LoadLocalUsersAsync();
         await LoadOrdersAsync();
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task ReloadLocalUsersAndRefreshAsync()
-    {
-        await LoadLocalUsersAsync();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -405,6 +651,13 @@
             var loadedOrders = await OrderService.GetAllAsync();
             orders.Clear();
             orders.AddRange(loadedOrders);
+
+            // Update selected order if it still exists
+            if (selectedOrder != null)
+            {
+                var updated = orders.FirstOrDefault(o => o.Id == selectedOrder.Id);
+                selectedOrder = updated;
+            }
         }
         catch (Exception ex)
         {
@@ -432,59 +685,62 @@
             .ToList();
     }
 
+    private void SelectOrder(OrderDTO order)
+    {
+        selectedOrder = order;
+        formOrder = Clone(order);
+        formCustomerName = order.Customer?.Name ?? string.Empty;
+        formCustomerIdNo = order.Customer?.IDNO;
+        isCreating = false;
+        isEditing = false;
+        formError = null;
+    }
+
     private void StartCreate()
     {
         formOrder = CreateEmptyOrder(CurrentTenantId);
         formCustomerName = string.Empty;
         formCustomerIdNo = null;
+        selectedOrder = null;
         formError = null;
-        panelMode = PanelMode.Create;
-        showPanel = true;
+        isCreating = true;
+        isEditing = false;
     }
 
-    private void ViewOrder(OrderDTO order)
+    private void CancelCreate()
     {
-        formOrder = Clone(order);
-        formCustomerName = order.Customer?.Name ?? string.Empty;
-        formCustomerIdNo = order.Customer?.IDNO;
+        isCreating = false;
         formError = null;
-        panelMode = PanelMode.View;
-        showPanel = true;
+        isSubmitting = false;
+        formOrder = CreateEmptyOrder();
     }
 
-    private void StartEdit(OrderDTO order)
+    private void StartEdit()
     {
-        if (order.Status == "Completed")
-        {
-            ViewOrder(order);
-            return;
-        }
-        
-        formOrder = Clone(order);
-        formCustomerName = order.Customer?.Name ?? string.Empty;
-        formCustomerIdNo = order.Customer?.IDNO;
-        formError = null;
-        panelMode = PanelMode.Edit;
-        showPanel = true;
-    }
+        if (selectedOrder == null || selectedOrder.Status == "Completed") return;
 
-    private void SwitchToEdit()
-    {
-        if (formOrder.Status == "Completed") return;
-        panelMode = PanelMode.Edit;
+        formOrder = Clone(selectedOrder);
+        formCustomerName = selectedOrder.Customer?.Name ?? string.Empty;
+        formCustomerIdNo = selectedOrder.Customer?.IDNO;
+        isEditing = true;
+        isCreating = false;
         formError = null;
     }
 
-    private void ClosePanel()
+    private void CancelEdit()
     {
-        showPanel = false;
+        if (selectedOrder == null) return;
+
+        formOrder = Clone(selectedOrder);
+        formCustomerName = selectedOrder.Customer?.Name ?? string.Empty;
+        formCustomerIdNo = selectedOrder.Customer?.IDNO;
+        isEditing = false;
         formError = null;
         isSubmitting = false;
     }
-    
+
     private void AddItem()
     {
-        if (IsReadOnly) return;
         formOrder.Items ??= new List<ItemDTO>();
         formOrder.Items.Add(new ItemDTO 
         { 
@@ -499,7 +755,6 @@
 
     private void RemoveItem(ItemDTO item)
     {
-        if (IsReadOnly) return;
         formOrder.Items?.Remove(item);
         RecalculateTotal();
     }
@@ -508,7 +763,7 @@
     {
         formOrder.Total = 0;
         if (formOrder.Items == null) return;
-        
+
         foreach (var item in formOrder.Items)
         {
             item.Total = item.Price * item.Quantity;
@@ -518,8 +773,6 @@
 
     private async Task HandleSubmitAsync()
     {
-        if (IsReadOnly) return;
-
         formError = null;
         RecalculateTotal();
 
@@ -566,12 +819,11 @@
             };
         }
 
-        // KEEP ONLY TenantId and LocalUserId, DO NOT set navigation properties
         formOrder.TenantId = selectedTenant.Id;
-        formOrder.Tenant = null; // let the API resolve it
+        formOrder.Tenant = null;
 
         formOrder.LocalUserId = selectedLocalUser.Id;
-        formOrder.LocalUser = new LocalUserDTO { Id = selectedLocalUser.Id, Name = selectedLocalUser.Name, TenantId = selectedTenant.Id }; // Passing a stub for the API to resolve
+        formOrder.LocalUser = new LocalUserDTO { Id = selectedLocalUser.Id, Name = selectedLocalUser.Name, TenantId = selectedTenant.Id };
 
         formOrder.Customer = customer;
         formOrder.CustomerId = null;
@@ -586,20 +838,22 @@
 
         try
         {
-            if (panelMode == PanelMode.Create)
+            if (isCreating)
             {
                 var created = await OrderService.CreateAsync(formOrder);
                 orders.Add(created);
+                selectedOrder = created;
                 formOrder = Clone(created);
+                isCreating = false;
             }
-            else
+            else if (isEditing)
             {
                 var updated = await OrderService.UpdateAsync(formOrder.Id, formOrder);
                 SyncToList(updated);
+                selectedOrder = updated;
                 formOrder = Clone(updated);
+                isEditing = false;
             }
-
-            panelMode = PanelMode.View;
         }
         catch (Exception ex)
         {
@@ -612,9 +866,9 @@
         }
     }
 
-    private async Task DeleteAsync(Guid id)
+    private async Task DeleteOrderAsync(Guid id)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "Delete this order? This cannot be undone."))
+        if (!await JS.InvokeAsync<bool>("confirm", "Delete this order?\n\nThis action cannot be undone."))
         {
             return;
         }
@@ -624,9 +878,10 @@
             await OrderService.DeleteAsync(id);
             orders.RemoveAll(order => order.Id == id);
 
-            if (showPanel && formOrder.Id == id)
+            if (selectedOrder?.Id == id)
             {
-                ClosePanel();
+                selectedOrder = null;
+                isEditing = false;
             }
 
             StateHasChanged();
@@ -635,12 +890,6 @@
         {
             await JS.InvokeVoidAsync("alert", $"Delete failed: {ex.Message}");
         }
-    }
-
-    private async Task DeleteFromPanel(Guid id)
-    {
-        ClosePanel();
-        await DeleteAsync(id);
     }
 
     private void SyncToList(OrderDTO updated)

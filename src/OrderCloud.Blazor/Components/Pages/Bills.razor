@@ -8,137 +8,275 @@
 @inject IJSRuntime JSRuntime
 @rendermode InteractiveServer
 
-<PageTitle>Bills</PageTitle>
+<PageTitle>Bills & Receipts</PageTitle>
 
-<div class="container-fluid">
-    <div class="row mb-3">
-        <div class="col">
-            <h1>Bills & Receipts</h1>
+<div class="bills-page">
+    <div class="page-header">
+        <div class="header-left">
+            <h1 class="page-title">Bills & Receipts</h1>
+            <span class="count-badge">@FilteredBills.Count() bill@(FilteredBills.Count() == 1 ? "" : "s")</span>
         </div>
-        <div class="col-auto">
-            <button type="button" class="btn btn-primary" @onclick="OnRefreshClick" disabled="@isLoading">
-                @if (isLoading)
-                {
-                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    <span>Loading...</span>
-                }
-                else
-                {
-                    <span>🔄 Refresh</span>
-                }
-            </button>
-        </div>
+        <button class="btn-refresh" @onclick="OnRefreshClick" disabled="@isLoading" title="Refresh bills">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z" />
+                <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
+            </svg>
+            Refresh
+        </button>
     </div>
+
+    @if (errorMessage != null)
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
 
     @if (isLoading)
     {
-        <div class="text-center">
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <p>Loading bills...</p>
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <span>Loading bills…</span>
         </div>
     }
-    else if (errorMessage != null)
+    else if (!bills.Any())
     {
-        <div class="alert alert-danger">
-            <strong>Error:</strong> @errorMessage
+        <div class="empty-state">
+            <p>No bills found.</p>
         </div>
     }
     else
     {
         <!-- Statistics Cards -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card text-white bg-primary">
-                    <div class="card-body">
-                        <h5 class="card-title">Total Bills</h5>
-                        <h2>@FilteredBills.Count()</h2>
-                    </div>
+        <div class="stats-grid">
+            <div class="stat-card stat-primary">
+                <div class="stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v1h14V4a1 1 0 0 0-1-1H2zm13 4H1v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7z"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Total Bills</div>
+                    <div class="stat-value">@FilteredBills.Count()</div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-white bg-success">
-                    <div class="card-body">
-                        <h5 class="card-title">Total Revenue</h5>
-                        <h2>$@FilteredBills.Sum(b => b.Total).ToString("F2")</h2>
-                    </div>
+
+            <div class="stat-card stat-success">
+                <div class="stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M1 3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1H1zm7 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
+                        <path d="M0 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V5zm3 0a2 2 0 0 1-2 2v4a2 2 0 0 1 2 2h10a2 2 0 0 1 2-2V7a2 2 0 0 1-2-2H3z"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Total Revenue</div>
+                    <div class="stat-value">$@FilteredBills.Sum(b => b.Total).ToString("F2")</div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-white bg-info">
-                    <div class="card-body">
-                        <h5 class="card-title">Cash Payments</h5>
-                        <h2>@FilteredBills.Count(b => b.PaymentMethod == "Cash")</h2>
-                    </div>
+
+            <div class="stat-card stat-info">
+                <div class="stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M5.5 9.511c.076.954.83 1.697 2.182 1.785V12h.6v-.709c1.4-.098 2.218-.846 2.218-1.932 0-.987-.626-1.496-1.745-1.76l-.473-.112V5.57c.6.068.982.396 1.074.85h1.052c-.076-.919-.864-1.638-2.126-1.716V4h-.6v.719c-1.195.117-2.01.836-2.01 1.853 0 .9.606 1.472 1.613 1.707l.397.098v2.034c-.615-.093-1.022-.43-1.114-.9H5.5zm2.177-2.166c-.59-.137-.91-.416-.91-.836 0-.47.345-.822.915-.925v1.76h-.005zm.692 1.193c.717.166 1.048.435 1.048.91 0 .542-.412.914-1.135.982V8.518l.087.02z"/>
+                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                        <path d="M8 13.5a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11zm0 .5A6 6 0 1 0 8 2a6 6 0 0 0 0 12z"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Cash Payments</div>
+                    <div class="stat-value">@FilteredBills.Count(b => b.PaymentMethod == "Cash")</div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-white bg-warning">
-                    <div class="card-body">
-                        <h5 class="card-title">Card Payments</h5>
-                        <h2>@FilteredBills.Count(b => b.PaymentMethod == "Card")</h2>
-                    </div>
+
+            <div class="stat-card stat-warning">
+                <div class="stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2.5 1a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-2zm0 3a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 2a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1zm3 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1zm3 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1zm3 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/>
+                    </svg>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Card Payments</div>
+                    <div class="stat-value">@FilteredBills.Count(b => b.PaymentMethod == "Card")</div>
                 </div>
             </div>
         </div>
 
-        <!-- Bills Table -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">All Bills (@FilteredBills.Count())</h5>
+        <div class="master-detail-container">
+            <div class="bills-list-panel">
+                <h2 class="panel-title">Bills</h2>
+
+                <div class="filters-container">
+                    <div class="filter-group">
+                        <label class="filter-label">Payment Method</label>
+                        <select class="filter-select" @bind="paymentMethodFilter">
+                            <option value="">All Methods</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Card">Card</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="search-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
+                    <input type="text" 
+                           class="search-input" 
+                           placeholder="Search bills..." 
+                           @bind="searchTerm"
+                           @bind:event="oninput" />
+                    @if (!string.IsNullOrWhiteSpace(searchTerm))
+                    {
+                        <button class="clear-search" @onclick="() => searchTerm = string.Empty" title="Clear search">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                            </svg>
+                        </button>
+                    }
+                </div>
+
+                <div class="bills-list">
+                    @if (!SearchFilteredBills.Any())
+                    {
+                        <div class="no-results">No bills match your search or filter</div>
+                    }
+                    else
+                    {
+                        @foreach (var bill in SearchFilteredBills.OrderByDescending(b => b.BillDate))
+                        {
+                            <div class="bill-list-item @(selectedBill?.Id == bill.Id ? "selected" : "")" 
+                                 @onclick="() => SelectBill(bill)">
+                                <div class="bill-info">
+                                    <div class="bill-header">
+                                        <span class="bill-id">#@bill.Id.ToString("N")[..8]</span>
+                                        <span class="payment-badge payment-@bill.PaymentMethod?.ToLower()">@bill.PaymentMethod</span>
+                                    </div>
+                                    <div class="bill-meta">
+                                        <span class="bill-total">$@bill.Total.ToString("F2")</span>
+                                        <span class="bill-separator">•</span>
+                                        <span class="bill-items">@bill.Items.Count item@(bill.Items.Count == 1 ? "" : "s")</span>
+                                    </div>
+                                    <div class="bill-date">@bill.BillDate.ToString("MMM dd, yyyy HH:mm")</div>
+                                </div>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                                </svg>
+                            </div>
+                        }
+                    }
+                </div>
             </div>
-            <div class="card-body">
-                @if (!FilteredBills.Any())
+
+            <div class="bill-details-panel">
+                @if (selectedBill == null)
                 {
-                    <p class="text-muted">No bills found.</p>
+                    <div class="empty-selection">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
+                        </svg>
+                        <p>Select a bill to view details and receipt</p>
+                    </div>
                 }
                 else
                 {
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Bill ID</th>
-                                    <th>Date</th>
-                                    <th>Payment Method</th>
-                                    <th>Items</th>
-                                    <th>Total</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var bill in FilteredBills.OrderByDescending(b => b.BillDate))
-                                {
-                                    <tr>
-                                        <td>
-                                            <small class="font-monospace">@bill.Id.ToString("N").Substring(0, 8)...</small>
-                                        </td>
-                                        <td>@bill.BillDate.ToString("MMM dd, yyyy HH:mm")</td>
-                                        <td>
-                                            @if (bill.PaymentMethod == "Cash")
-                                            {
-                                                <span class="badge bg-success">💵 Cash</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-primary">💳 Card</span>
-                                            }
-                                        </td>
-                                        <td>@bill.Items.Count item(s)</td>
-                                        <td><strong>$@bill.Total.ToString("F2")</strong></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-info" @onclick="() => ViewBillDetails(bill)">
-                                                <i class="bi bi-eye"></i> View
-                                            </button>
-                                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteBill(bill.Id)">
-                                                <i class="bi bi-trash"></i> Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+                    <div class="details-header">
+                        <h2>Bill #@selectedBill.Id.ToString("N")[..8]</h2>
+                        <button class="btn-delete" @onclick="() => DeleteBill(selectedBill.Id)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
+                                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
+                            </svg>
+                            Delete
+                        </button>
+                    </div>
+
+                    <div class="bill-details">
+                        <div class="detail-section">
+                            <h3>Bill Information</h3>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <label>Bill ID</label>
+                                    <div class="detail-value">
+                                        <code>@selectedBill.Id</code>
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Date & Time</label>
+                                    <div class="detail-value">@selectedBill.BillDate.ToString("MMM dd, yyyy HH:mm:ss")</div>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Payment Method</label>
+                                    <div class="detail-value">
+                                        <span class="payment-badge payment-@selectedBill.PaymentMethod?.ToLower()">@selectedBill.PaymentMethod</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="detail-section">
+                            <h3>Payment Summary</h3>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <label>Subtotal</label>
+                                    <div class="detail-value">$@selectedBill.Subtotal.ToString("F2")</div>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Total Amount</label>
+                                    <div class="detail-value price-value">$@selectedBill.Total.ToString("F2")</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="detail-section">
+                            <h3>Bill Items</h3>
+                            @if (!selectedBill.Items?.Any() ?? true)
+                            {
+                                <div class="empty-items">No items in this bill</div>
+                            }
+                            else
+                            {
+                                <div class="items-detail-table">
+                                    <div class="items-detail-header">
+                                        <span>Name</span>
+                                        <span>Price</span>
+                                        <span>Qty</span>
+                                        <span>TVA</span>
+                                        <span>Total</span>
+                                    </div>
+                                    @foreach (var item in selectedBill.Items)
+                                    {
+                                        <div class="items-detail-row">
+                                            <span class="item-name">@item.Name</span>
+                                            <span>$@item.Price.ToString("F2")</span>
+                                            <span>@item.Quantity</span>
+                                            <span>@item.TVA</span>
+                                            <span class="item-total">$@item.Total.ToString("F2")</span>
+                                        </div>
+                                    }
+                                    <div class="items-detail-footer">
+                                        <span>Bill Total:</span>
+                                        <span class="total-amount">$@selectedBill.Total.ToString("F2")</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(selectedBill.ReceiptContent))
+                        {
+                            <div class="detail-section">
+                                <div class="section-header-with-action">
+                                    <h3>Receipt</h3>
+                                    <button class="btn-print" @onclick="PrintReceipt">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+                                            <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
+                                        </svg>
+                                        Print Receipt
+                                    </button>
+                                </div>
+                                <div id="print-receipt" class="receipt-content">
+                                    <pre>@selectedBill.ReceiptContent</pre>
+                                </div>
+                            </div>
+                        }
                     </div>
                 }
             </div>
@@ -146,84 +284,25 @@
     }
 </div>
 
-<!-- Bill Details Modal -->
-@if (selectedBill != null)
-{
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Bill Details</h5>
-                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <p><strong>Bill ID:</strong> @selectedBill.Id</p>
-                            <p><strong>Date:</strong> @selectedBill.BillDate.ToString("MMM dd, yyyy HH:mm:ss")</p>
-                            <p><strong>Payment Method:</strong> @selectedBill.PaymentMethod</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p><strong>Subtotal:</strong> $@selectedBill.Subtotal.ToString("F2")</p>
-                            <p><strong>Total:</strong> $@selectedBill.Total.ToString("F2")</p>
-                        </div>
-                    </div>
-
-                    <h6>Items:</h6>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Price</th>
-                                <th>Qty</th>
-                                <th>TVA</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var item in selectedBill.Items)
-                            {
-                                <tr>
-                                    <td>@item.Name</td>
-                                    <td>$@item.Price.ToString("F2")</td>
-                                    <td>@item.Quantity</td>
-                                    <td>@item.TVA</td>
-                                    <td>$@item.Total.ToString("F2")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-
-                    @if (!string.IsNullOrWhiteSpace(selectedBill.ReceiptContent))
-                    {
-                        <hr />
-                        <h6>Receipt:</h6>
-                        <pre id="print-receipt" class="border p-3" style="background-color: #f8f9fa;">@selectedBill.ReceiptContent</pre>
-                    }
-                </div>
-                <div class="modal-footer">
-                    @if (!string.IsNullOrWhiteSpace(selectedBill.ReceiptContent))
-                    {
-                        <button type="button" class="btn btn-primary" @onclick="PrintReceipt">Print</button>
-                    }
-                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
 @code {
     private List<BillDTO> bills = new();
     private BillDTO? selectedBill = null;
     private bool isLoading = false;
     private string? errorMessage = null;
+    private string searchTerm = string.Empty;
+    private string paymentMethodFilter = string.Empty;
 
     private Guid? CurrentTenantId => TenantSelectionService.SelectedTenantId;
 
     private IEnumerable<BillDTO> FilteredBills => bills
         .Where(bill => bill.TenantId.HasValue && TenantSelectionService.CanAccessTenant(bill.TenantId.Value))
         .Where(bill => !CurrentTenantId.HasValue || bill.TenantId == CurrentTenantId.Value);
+
+    private IEnumerable<BillDTO> SearchFilteredBills => FilteredBills
+        .Where(bill => string.IsNullOrWhiteSpace(searchTerm)
+            || bill.Id.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || (bill.PaymentMethod?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false))
+        .Where(bill => string.IsNullOrWhiteSpace(paymentMethodFilter) || bill.PaymentMethod == paymentMethodFilter);
 
     protected override async Task OnInitializedAsync()
     {
@@ -237,12 +316,19 @@
         isLoading = true;
         errorMessage = null;
         StateHasChanged();
-        
+
         try
         {
             await TenantSelectionService.RefreshAsync();
             bills = await BillService.GetAllBillsAsync();
             Logger.LogInformation("Loaded {Count} bills", bills.Count);
+
+            // Update selected bill if it still exists
+            if (selectedBill != null)
+            {
+                var updated = bills.FirstOrDefault(b => b.Id == selectedBill.Id);
+                selectedBill = updated;
+            }
         }
         catch (Exception ex)
         {
@@ -263,14 +349,9 @@
         await LoadBills();
     }
 
-    private void ViewBillDetails(BillDTO bill)
+    private void SelectBill(BillDTO bill)
     {
         selectedBill = bill;
-    }
-
-    private void CloseModal()
-    {
-        selectedBill = null;
     }
 
     private async Task PrintReceipt()
@@ -280,13 +361,17 @@
 
     private async Task DeleteBill(Guid id)
     {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this bill?"))
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Delete this bill?\n\nThis action cannot be undone."))
         {
             try
             {
                 var success = await BillService.DeleteBillAsync(id);
                 if (success)
                 {
+                    if (selectedBill?.Id == id)
+                    {
+                        selectedBill = null;
+                    }
                     await LoadBills();
                 }
                 else
@@ -304,7 +389,6 @@
 
     private void OnTenantChanged()
     {
-        // Reload data when tenant selection changes
         _ = InvokeAsync(async () =>
         {
             await LoadBills();

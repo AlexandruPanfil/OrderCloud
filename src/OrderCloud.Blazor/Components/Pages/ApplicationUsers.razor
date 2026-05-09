@@ -37,51 +37,149 @@
     }
     else
     {
-        <div class="note">
-            Assign one or more tenants to each application user. Changes are saved per user.
-        </div>
+        <div class="master-detail-container">
+            <div class="users-list-panel">
+                <h2 class="panel-title">Users</h2>
+                <div class="search-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
+                    <input type="text" 
+                           class="search-input" 
+                           placeholder="Search users..." 
+                           @bind="userSearchQuery"
+                           @bind:event="oninput" />
+                    @if (!string.IsNullOrWhiteSpace(userSearchQuery))
+                    {
+                        <button class="clear-search" @onclick="() => userSearchQuery = string.Empty" title="Clear search">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                            </svg>
+                        </button>
+                    }
+                </div>
+                <div class="users-list">
+                    @if (!FilteredUsers.Any())
+                    {
+                        <div class="no-results">No users match your search</div>
+                    }
+                    else
+                    {
+                        @foreach (var user in FilteredUsers)
+                        {
+                            <div class="user-list-item @(selectedUser?.Id == user.Id ? "selected" : "")" 
+                                 @onclick="() => SelectUser(user)">
+                                <div class="user-info">
+                                    <div class="user-name">@user.UserName</div>
+                                    <div class="user-email">@user.Email</div>
+                                </div>
+                                <div class="user-tenant-count">
+                                    <span class="badge">@user.TenantIds.Count</span>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
 
-        <div class="users-grid">
-            @foreach (var user in VisibleUsers)
-            {
-                <div class="user-card">
-                    <div class="user-card-header">
+            <div class="user-details-panel">
+                @if (selectedUser == null)
+                {
+                    <div class="empty-selection">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                            <path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2zm12 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1v-1c0-1-1-4-6-4s-6 3-6 4v1a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12z"/>
+                        </svg>
+                        <p>Select a user to manage their tenant assignments</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="details-header">
                         <div>
-                            <div class="user-name">@user.UserName</div>
-                            <div class="user-email">@user.Email</div>
+                            <h2>@selectedUser.UserName</h2>
+                            <p class="text-muted">@selectedUser.Email</p>
                         </div>
-                        <button class="btn-save" disabled="@IsSaving(user.Id)" @onclick="() => SaveAssignmentsAsync(user.Id)">
-                            @if (IsSaving(user.Id))
+                        <button class="btn-save" disabled="@isSaving" @onclick="SaveAssignmentsAsync">
+                            @if (isSaving)
                             {
                                 <span class="spinner spinner-sm"></span>
                                 <span>Saving…</span>
                             }
                             else
                             {
-                                <span>Save</span>
+                                <span>Save Changes</span>
                             }
                         </button>
                     </div>
 
-                    <div class="mt-3">
-                        <div class="text-muted small mb-2">Assigned tenants</div>
-                        @if (AssignedTenants(user.Id).Any())
+                    @if (!string.IsNullOrEmpty(saveError))
+                    {
+                        <div class="alert alert-danger">@saveError</div>
+                    }
+                    @if (saveSuccess)
+                    {
+                        <div class="alert alert-success">Tenant assignments saved successfully!</div>
+                    }
+
+                    <div class="assigned-tenants-section">
+                        <h3>Assigned Tenants</h3>
+                        @if (AssignedTenants().Any())
                         {
-                            <div class="d-flex flex-wrap gap-2">
-                                @foreach (var tenant in AssignedTenants(user.Id))
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                @foreach (var tenant in AssignedTenants())
                                 {
-                                    <span class="badge bg-primary-subtle text-primary border">@tenant.Name</span>
+                                    <span class="badge bg-primary">@tenant.Name</span>
                                 }
                             </div>
                         }
                         else
                         {
-                            <div class="text-muted">No tenants assigned.</div>
+                            <p class="text-muted">No tenants assigned yet.</p>
                         }
                     </div>
 
-                    <details class="mt-3">
-                        <summary>Manage tenant assignments</summary>
+                    <div class="tenant-selection-section">
+                        <div class="section-header">
+                            <h3>Manage Tenant Access</h3>
+                            <div class="tenant-filters">
+                                <label class="filter-option">
+                                    <input type="radio" 
+                                           name="tenantFilter" 
+                                           value="all"
+                                           checked="@(tenantFilter == "all")"
+                                           @onchange="@(() => tenantFilter = "all")" />
+                                    <span>All Tenants</span>
+                                </label>
+                                <label class="filter-option">
+                                    <input type="radio" 
+                                           name="tenantFilter" 
+                                           value="selected"
+                                           checked="@(tenantFilter == "selected")"
+                                           @onchange="@(() => tenantFilter = "selected")" />
+                                    <span>Selected Only</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="search-container">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                            </svg>
+                            <input type="text" 
+                                   class="search-input" 
+                                   placeholder="Search tenants..." 
+                                   @bind="tenantSearchQuery"
+                                   @bind:event="oninput" />
+                            @if (!string.IsNullOrWhiteSpace(tenantSearchQuery))
+                            {
+                                <button class="clear-search" @onclick="() => tenantSearchQuery = string.Empty" title="Clear search">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                                    </svg>
+                                </button>
+                            }
+                        </div>
 
                         @if (!VisibleTenants.Any())
                         {
@@ -89,32 +187,32 @@
                                 <p>No tenants found. Create tenants first before assigning them to users.</p>
                             </div>
                         }
+                        else if (!FilteredTenants.Any())
+                        {
+                            <div class="no-results">No tenants match your search or filter</div>
+                        }
                         else
                         {
-                            <div class="assignment-grid">
-                                @foreach (var tenant in VisibleTenants)
+                            <div class="tenant-selection-grid">
+                                @foreach (var tenant in FilteredTenants)
                                 {
-                                    var isAssigned = IsAssigned(user.Id, tenant.Id);
-                                    <label class="tenant-chip @(isAssigned ? "active" : "")">
+                                    var isAssigned = IsAssigned(tenant.Id);
+                                    <label class="tenant-checkbox-item @(isAssigned ? "checked" : "")">
                                         <input type="checkbox"
                                                checked="@isAssigned"
-                                               @onchange="e => ToggleAssignment(user.Id, tenant.Id, e)" />
-                                        <span>@tenant.Name</span>
+                                               @onchange="e => ToggleAssignment(tenant.Id, e)" />
+                                        <span class="tenant-label">@tenant.Name</span>
                                     </label>
                                 }
                             </div>
                         }
-                    </details>
-
-                    <div class="card-meta">
-                        <span>@SelectedCount(user.Id) tenant@(SelectedCount(user.Id) == 1 ? "" : "s") assigned</span>
-                        @if (assignmentErrors.TryGetValue(user.Id, out var error) && !string.IsNullOrEmpty(error))
-                        {
-                            <span class="field-error">@error</span>
-                        }
                     </div>
-                </div>
-            }
+
+                    <div class="details-footer">
+                        <span class="text-muted">@SelectedCount() tenant@(SelectedCount() == 1 ? "" : "s") selected</span>
+                    </div>
+                }
+            </div>
         </div>
     }
 </div>
@@ -122,14 +220,56 @@
 @code {
     private List<ApplicationUserAssignmentDTO> users = new();
     private List<TenantDTO> tenants = new();
-    private readonly Dictionary<string, HashSet<Guid>> selections = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, bool> savingStates = new();
-    private readonly Dictionary<string, string?> assignmentErrors = new();
+    private ApplicationUserAssignmentDTO? selectedUser = null;
+    private HashSet<Guid> selectedTenantIds = new();
     private bool isLoading = true;
+    private bool isSaving = false;
+    private string? saveError = null;
+    private bool saveSuccess = false;
+    private string userSearchQuery = string.Empty;
+    private string tenantSearchQuery = string.Empty;
+    private string tenantFilter = "all";
 
     private IReadOnlyList<TenantDTO> VisibleTenants => tenants;
 
     private IEnumerable<ApplicationUserAssignmentDTO> VisibleUsers => users;
+
+    private IEnumerable<ApplicationUserAssignmentDTO> FilteredUsers
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(userSearchQuery))
+                return VisibleUsers;
+
+            var query = userSearchQuery.Trim().ToLowerInvariant();
+            return VisibleUsers.Where(u =>
+                u.UserName.ToLowerInvariant().Contains(query) ||
+                (u.Email?.ToLowerInvariant().Contains(query) ?? false));
+        }
+    }
+
+    private IEnumerable<TenantDTO> FilteredTenants
+    {
+        get
+        {
+            var filtered = VisibleTenants.AsEnumerable();
+
+            // Apply filter (all or selected only)
+            if (tenantFilter == "selected")
+            {
+                filtered = filtered.Where(t => selectedTenantIds.Contains(t.Id));
+            }
+
+            // Apply search query
+            if (!string.IsNullOrWhiteSpace(tenantSearchQuery))
+            {
+                var query = tenantSearchQuery.Trim().ToLowerInvariant();
+                filtered = filtered.Where(t => t.Name.ToLowerInvariant().Contains(query));
+            }
+
+            return filtered.OrderBy(t => t.Name);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -144,6 +284,12 @@
             tenants = (await TenantService.GetAllAsync())
                 .OrderBy(tenant => tenant.Name)
                 .ToList();
+
+            Console.WriteLine($"[ApplicationUsers] Loaded {tenants.Count} tenants from API");
+            foreach (var tenant in tenants)
+            {
+                Console.WriteLine($"  - Tenant: {tenant.Name} (ID: {tenant.Id})");
+            }
 
             await ReloadUsersAsync();
         }
@@ -160,88 +306,107 @@
             .OrderBy(user => user.UserName)
             .ToList();
 
-        SyncSelections();
-    }
-
-    private void SyncSelections()
-    {
-        selections.Clear();
-        assignmentErrors.Clear();
-        savingStates.Clear();
-
+        Console.WriteLine($"[ApplicationUsers] Loaded {users.Count} users from API");
         foreach (var user in users)
         {
-            selections[user.Id] = user.TenantIds?.ToHashSet() ?? new();
+            Console.WriteLine($"  - User: {user.UserName} ({user.Email}) - Tenants: {user.TenantIds.Count}");
+        }
+
+        // Update selected user data if one is selected
+        if (selectedUser != null)
+        {
+            var updatedUser = users.FirstOrDefault(u => u.Id == selectedUser.Id);
+            if (updatedUser != null)
+            {
+                selectedUser = updatedUser;
+                selectedTenantIds = updatedUser.TenantIds?.ToHashSet() ?? new HashSet<Guid>();
+            }
         }
     }
 
-    private IEnumerable<TenantDTO> AssignedTenants(string userId) =>
-        selections.TryGetValue(userId, out var set)
-            ? VisibleTenants.Where(tenant => set.Contains(tenant.Id)).OrderBy(tenant => tenant.Name)
-            : Enumerable.Empty<TenantDTO>();
+    private void SelectUser(ApplicationUserAssignmentDTO user)
+    {
+        selectedUser = user;
+        selectedTenantIds = user.TenantIds?.ToHashSet() ?? new HashSet<Guid>();
+        saveError = null;
+        saveSuccess = false;
+        tenantSearchQuery = string.Empty;
+        tenantFilter = "all";
+    }
 
-    private bool IsAssigned(string userId, Guid tenantId) =>
-        selections.TryGetValue(userId, out var set) && set.Contains(tenantId);
+    private IEnumerable<TenantDTO> AssignedTenants()
+    {
+        if (selectedUser == null)
+            return Enumerable.Empty<TenantDTO>();
 
-    private int SelectedCount(string userId) =>
-        selections.TryGetValue(userId, out var set)
-            ? VisibleTenants.Count(tenant => set.Contains(tenant.Id))
-            : 0;
+        return VisibleTenants
+            .Where(tenant => selectedTenantIds.Contains(tenant.Id))
+            .OrderBy(tenant => tenant.Name);
+    }
 
-    private void ToggleAssignment(string userId, Guid tenantId, ChangeEventArgs args)
+    private bool IsAssigned(Guid tenantId)
+    {
+        return selectedTenantIds.Contains(tenantId);
+    }
+
+    private int SelectedCount()
+    {
+        return VisibleTenants.Count(tenant => selectedTenantIds.Contains(tenant.Id));
+    }
+
+    private void ToggleAssignment(Guid tenantId, ChangeEventArgs args)
     {
         var isChecked = args.Value switch
         {
             bool flag => flag,
             string str when bool.TryParse(str, out var parsed) => parsed,
-            _ => !IsAssigned(userId, tenantId)
+            _ => !IsAssigned(tenantId)
         };
-
-        if (!selections.TryGetValue(userId, out var set))
-        {
-            set = new HashSet<Guid>();
-            selections[userId] = set;
-        }
 
         if (isChecked)
         {
-            set.Add(tenantId);
+            selectedTenantIds.Add(tenantId);
         }
         else
         {
-            set.Remove(tenantId);
+            selectedTenantIds.Remove(tenantId);
         }
+
+        saveError = null;
+        saveSuccess = false;
     }
 
-    private bool IsSaving(string userId) =>
-        savingStates.TryGetValue(userId, out var isSaving) && isSaving;
-
-    private async Task SaveAssignmentsAsync(string userId)
+    private async Task SaveAssignmentsAsync()
     {
-        if (!selections.TryGetValue(userId, out var set))
-        {
-            set = new HashSet<Guid>();
-            selections[userId] = set;
-        }
+        if (selectedUser == null)
+            return;
 
-        assignmentErrors[userId] = null;
-        savingStates[userId] = true;
+        saveError = null;
+        saveSuccess = false;
+        isSaving = true;
 
         try
         {
-            await ApplicationUserService.UpdateTenantsAsync(userId, set.ToList());
+            await ApplicationUserService.UpdateTenantsAsync(selectedUser.Id, selectedTenantIds.ToList());
             await ReloadUsersAsync();
+            saveSuccess = true;
+
+            // Auto-hide success message after 3 seconds
+            _ = Task.Delay(3000).ContinueWith(_ => 
+            {
+                saveSuccess = false;
+                InvokeAsync(StateHasChanged);
+            });
         }
         catch (Exception ex)
         {
-            assignmentErrors[userId] = ex.Message;
+            saveError = ex.Message;
         }
         finally
         {
-            savingStates[userId] = false;
+            isSaving = false;
             StateHasChanged();
         }
     }
-
 }
 
