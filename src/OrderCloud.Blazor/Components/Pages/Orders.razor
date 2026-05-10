@@ -5,6 +5,8 @@
 @inject IOrderService OrderService
 @inject ILocalUserService LocalUserService
 @inject ITenantSelectionService TenantSelectionService
+@inject ICustomerService CustomerService
+@inject ICatalogItemService CatalogItemService
 @inject IJSRuntime JS
 @rendermode InteractiveServer
 
@@ -181,25 +183,55 @@
                             <h3>Customer (Optional)</h3>
                             <div class="form-row two-columns">
                                 <div class="form-group">
-                                    <label class="form-label">Customer Name</label>
-                                    <InputText class="form-input" @bind-Value="formCustomerName" placeholder="Optional" />
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Customer IDNO</label>
-                                    <InputText class="form-input" @bind-Value="formCustomerIdNo" placeholder="Optional" />
+                                    <label class="form-label">Select Customer</label>
+                                    <select class="form-select" @bind="SelectedCustomerIdStr">
+                                        <option value="">-- No Customer / New Customer --</option>
+                                        @foreach (var customer in AvailableCustomers)
+                                        {
+                                            <option value="@customer.Id">@customer.Name @(!string.IsNullOrWhiteSpace(customer.IDNO) ? $"({customer.IDNO})" : "")</option>
+                                        }
+                                    </select>
                                 </div>
                             </div>
+                            @if (string.IsNullOrEmpty(SelectedCustomerIdStr))
+                            {
+                                <div class="form-row two-columns">
+                                    <div class="form-group">
+                                        <label class="form-label">New Customer Name</label>
+                                        <InputText class="form-input" @bind-Value="formCustomerName" placeholder="Enter new customer name" />
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">New Customer IDNO</label>
+                                        <InputText class="form-input" @bind-Value="formCustomerIdNo" placeholder="Enter IDNO (optional)" />
+                                    </div>
+                                </div>
+                            }
                         </div>
 
                         <div class="form-section">
                             <div class="section-header-with-action">
                                 <h3>Order Items</h3>
-                                <button type="button" class="btn-add-item" @onclick="AddItem">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-                                    </svg>
-                                    Add Item
-                                </button>
+                                <div style="display: flex; gap: 8px;">
+                                    <select class="form-select" style="width: 250px;" @bind="SelectedCatalogItemIdStr">
+                                        <option value="">-- Select item from catalog --</option>
+                                        @foreach (var catalogItem in AvailableCatalogItems)
+                                        {
+                                            <option value="@catalogItem.Id">@catalogItem.Name - $@catalogItem.Price.ToString("F2")</option>
+                                        }
+                                    </select>
+                                    <button type="button" class="btn-add-item" @onclick="AddSelectedCatalogItem" disabled="@string.IsNullOrEmpty(SelectedCatalogItemIdStr)">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                                        </svg>
+                                        Add from Catalog
+                                    </button>
+                                    <button type="button" class="btn-add-item" @onclick="AddItem">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                                        </svg>
+                                        Add Custom Item
+                                    </button>
+                                </div>
                             </div>
 
                             @if (!formOrder.Items.Any())
@@ -552,6 +584,8 @@
     private readonly List<OrderDTO> orders = new();
     private List<TenantDTO> tenants = new();
     private List<LocalUserDTO> localUsers = new();
+    private List<CustomerDTO> customers = new();
+    private List<CatalogItemDTO> catalogItems = new();
 
     private OrderDTO? selectedOrder = null;
     private OrderDTO formOrder = CreateEmptyOrder();
@@ -566,6 +600,8 @@
 
     private string formCustomerName = string.Empty;
     private string? formCustomerIdNo;
+    private string SelectedCustomerIdStr = string.Empty;
+    private string SelectedCatalogItemIdStr = string.Empty;
 
     private string TenantIdStr
     {
@@ -609,6 +645,26 @@
             .Where(u => u.TenantId == formOrder.TenantId)
             .OrderBy(u => u.Name);
 
+    private IEnumerable<CustomerDTO> AvailableCustomers =>
+        customers
+            .OrderBy(c => c.Name);
+
+    private IEnumerable<CatalogItemDTO> AvailableCatalogItems
+    {
+        get
+        {
+            var addedItemNames = formOrder.Items?
+                .Select(i => i.Name.Trim().ToLowerInvariant())
+                .ToHashSet() ?? new HashSet<string>();
+
+            return catalogItems
+                .Where(i => formOrder.TenantId == Guid.Empty || i.TenantId == formOrder.TenantId)
+                .Where(i => TenantSelectionService.CanAccessTenant(i.TenantId))
+                .Where(i => !addedItemNames.Contains(i.Name.Trim().ToLowerInvariant()))
+                .OrderBy(i => i.Name);
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await TenantSelectionService.EnsureInitializedAsync();
@@ -633,6 +689,8 @@
     private async Task ReloadAllDataAsync()
     {
         await LoadLocalUsersAsync();
+        await LoadCustomersAsync();
+        await LoadCatalogItemsAsync();
         await LoadOrdersAsync();
         await InvokeAsync(StateHasChanged);
     }
@@ -647,6 +705,8 @@
             await TenantSelectionService.RefreshAsync();
             LoadTenants();
             await LoadLocalUsersAsync();
+            await LoadCustomersAsync();
+            await LoadCatalogItemsAsync();
 
             var loadedOrders = await OrderService.GetAllAsync();
             orders.Clear();
@@ -685,12 +745,45 @@
             .ToList();
     }
 
+    private async Task LoadCustomersAsync()
+    {
+        try
+        {
+            var allCustomers = await CustomerService.GetAllAsync();
+            customers = allCustomers
+                .OrderBy(c => c.Name)
+                .ToList();
+        }
+        catch
+        {
+            customers = new List<CustomerDTO>();
+        }
+    }
+
+    private async Task LoadCatalogItemsAsync()
+    {
+        try
+        {
+            var allItems = await CatalogItemService.GetAllAsync();
+            catalogItems = allItems
+                .Where(i => TenantSelectionService.CanAccessTenant(i.TenantId))
+                .OrderBy(i => i.Name)
+                .ToList();
+        }
+        catch
+        {
+            catalogItems = new List<CatalogItemDTO>();
+        }
+    }
+
     private void SelectOrder(OrderDTO order)
     {
         selectedOrder = order;
         formOrder = Clone(order);
         formCustomerName = order.Customer?.Name ?? string.Empty;
         formCustomerIdNo = order.Customer?.IDNO;
+        SelectedCustomerIdStr = order.Customer?.Id.ToString() ?? string.Empty;
+        SelectedCatalogItemIdStr = string.Empty;
         isCreating = false;
         isEditing = false;
         formError = null;
@@ -701,6 +794,8 @@
         formOrder = CreateEmptyOrder(CurrentTenantId);
         formCustomerName = string.Empty;
         formCustomerIdNo = null;
+        SelectedCustomerIdStr = string.Empty;
+        SelectedCatalogItemIdStr = string.Empty;
         selectedOrder = null;
         formError = null;
         isCreating = true;
@@ -722,6 +817,8 @@
         formOrder = Clone(selectedOrder);
         formCustomerName = selectedOrder.Customer?.Name ?? string.Empty;
         formCustomerIdNo = selectedOrder.Customer?.IDNO;
+        SelectedCustomerIdStr = selectedOrder.Customer?.Id.ToString() ?? string.Empty;
+        SelectedCatalogItemIdStr = string.Empty;
         isEditing = true;
         isCreating = false;
         formError = null;
@@ -734,6 +831,8 @@
         formOrder = Clone(selectedOrder);
         formCustomerName = selectedOrder.Customer?.Name ?? string.Empty;
         formCustomerIdNo = selectedOrder.Customer?.IDNO;
+        SelectedCustomerIdStr = selectedOrder.Customer?.Id.ToString() ?? string.Empty;
+        SelectedCatalogItemIdStr = string.Empty;
         isEditing = false;
         formError = null;
         isSubmitting = false;
@@ -750,6 +849,29 @@
             Price = 0, 
             TVA = "0%" 
         });
+        RecalculateTotal();
+    }
+
+    private void AddSelectedCatalogItem()
+    {
+        if (string.IsNullOrEmpty(SelectedCatalogItemIdStr)) return;
+
+        if (!Guid.TryParse(SelectedCatalogItemIdStr, out var catalogItemId)) return;
+
+        var catalogItem = catalogItems.FirstOrDefault(i => i.Id == catalogItemId);
+        if (catalogItem == null) return;
+
+        formOrder.Items ??= new List<ItemDTO>();
+        formOrder.Items.Add(new ItemDTO
+        {
+            Id = Guid.NewGuid(),
+            Name = catalogItem.Name,
+            Quantity = 1,
+            Price = catalogItem.Price,
+            TVA = "20%"
+        });
+
+        SelectedCatalogItemIdStr = string.Empty;
         RecalculateTotal();
     }
 
@@ -809,7 +931,11 @@
         }
 
         CustomerDTO? customer = null;
-        if (!string.IsNullOrWhiteSpace(formCustomerName))
+        if (!string.IsNullOrEmpty(SelectedCustomerIdStr) && Guid.TryParse(SelectedCustomerIdStr, out var customerId))
+        {
+            customer = customers.FirstOrDefault(c => c.Id == customerId);
+        }
+        else if (!string.IsNullOrWhiteSpace(formCustomerName))
         {
             customer = new CustomerDTO
             {
