@@ -1,8 +1,9 @@
 @page "/"
 @using OrderCloud.Shared.Models
 @using OrderCloud.Blazor.Services
-@inject HttpClient Http
+@inject IDashboardService DashboardService
 @inject ITenantSelectionService TenantSelectionService
+@inject ILogger<Home> Logger
 @rendermode InteractiveServer
 @implements IDisposable
 
@@ -113,14 +114,6 @@
 
     private Guid? CurrentTenantId => TenantSelectionService.SelectedTenantId;
 
-    public class DashboardDTO
-    {
-        public int OrdersToday { get; set; }
-        public decimal RevenueThisWeek { get; set; }
-        public int ActiveDevices { get; set; }
-        public List<OrderDTO> RecentOrders { get; set; } = new();
-    }
-
     protected override async Task OnInitializedAsync()
     {
         await TenantSelectionService.EnsureInitializedAsync();
@@ -130,7 +123,11 @@
 
     private void OnTenantChanged()
     {
-        _ = LoadDashboardAsync();
+        _ = InvokeAsync(async () =>
+        {
+            await LoadDashboardAsync();
+            StateHasChanged();
+        });
     }
 
     private async Task LoadDashboardAsync()
@@ -149,13 +146,14 @@
 
         try
         {
-            var response = await Http.GetFromJsonAsync<DashboardDTO>($"api/dashboard?tenantId={CurrentTenantId.Value}");
-            dashboard = response;
+            dashboard = await DashboardService.GetDashboardAsync(CurrentTenantId.Value);
+            Logger.LogInformation("Dashboard loaded successfully for tenant {TenantId}", CurrentTenantId.Value);
         }
         catch (Exception ex)
         {
             errorMessage = $"Failed to load dashboard data: {ex.Message}";
             dashboard = null;
+            Logger.LogError(ex, "Error loading dashboard for tenant {TenantId}", CurrentTenantId.Value);
         }
         finally
         {

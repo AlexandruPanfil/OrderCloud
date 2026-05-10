@@ -75,6 +75,11 @@ builder.Services.AddHttpClient<ICustomerService, CustomerService>(client =>
     client.BaseAddress = new Uri(apiBase);
 }).AddHttpMessageHandler<ApiKeyHandler>();
 
+builder.Services.AddHttpClient<IDashboardService, DashboardService>(client =>
+{
+    client.BaseAddress = new Uri(apiBase);
+}).AddHttpMessageHandler<ApiKeyHandler>();
+
 builder.Services.AddScoped<ITenantSelectionService, TenantSelectionService>();
 
 // Настройка аутентификации с несколькими схемами
