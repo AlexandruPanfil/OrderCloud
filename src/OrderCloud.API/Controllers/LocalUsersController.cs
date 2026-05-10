@@ -10,6 +10,7 @@ namespace OrderCloud.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(AuthenticationSchemes = "ApiKey")]
     public class LocalUsersController : ControllerBase
     {
         private readonly ApplicationDbContext _db;

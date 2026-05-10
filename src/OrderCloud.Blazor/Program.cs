@@ -31,45 +31,49 @@ if (string.IsNullOrWhiteSpace(apiBase))
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBase) });
 
+// Register the API key handler for server-to-server authentication
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ApiKeyHandler>();
+
 builder.Services.AddHttpClient<ITenantService, TenantService>(client =>
 {
     client.BaseAddress = new Uri(apiBase);
-});
+}).AddHttpMessageHandler<ApiKeyHandler>();
 
 builder.Services.AddHttpClient<IOrderService, OrderService>(client =>
 {
     client.BaseAddress = new Uri(apiBase);
-});
+}).AddHttpMessageHandler<ApiKeyHandler>();
 
 builder.Services.AddHttpClient<IApplicationUserService, ApplicationUserService>(client =>
 {
     client.BaseAddress = new Uri(apiBase);
-});
+}).AddHttpMessageHandler<ApiKeyHandler>();
 
 builder.Services.AddHttpClient<IDeviceService, DeviceService>(client =>
 {
     client.BaseAddress = new Uri(apiBase);
-});
+}).AddHttpMessageHandler<ApiKeyHandler>();
 
 builder.Services.AddHttpClient<ILocalUserService, LocalUserService>(client =>
 {
     client.BaseAddress = new Uri(apiBase);
-});
+}).AddHttpMessageHandler<ApiKeyHandler>();
 
 builder.Services.AddHttpClient<ICatalogItemService, CatalogItemService>(client =>
 {
     client.BaseAddress = new Uri(apiBase);
-});
+}).AddHttpMessageHandler<ApiKeyHandler>();
 
 builder.Services.AddHttpClient<IBillService, BillService>(client =>
 {
     client.BaseAddress = new Uri(apiBase);
-});
+}).AddHttpMessageHandler<ApiKeyHandler>();
 
 builder.Services.AddHttpClient<ICustomerService, CustomerService>(client =>
 {
     client.BaseAddress = new Uri(apiBase);
-});
+}).AddHttpMessageHandler<ApiKeyHandler>();
 
 builder.Services.AddScoped<ITenantSelectionService, TenantSelectionService>();
 

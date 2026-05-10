@@ -21,6 +21,7 @@ namespace OrderCloud.API.Controllers
 
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(AuthenticationSchemes = "ApiKey")]
     public class TenantsController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
@@ -80,6 +81,7 @@ namespace OrderCloud.API.Controllers
         }
 
         [HttpPost]
+        [AllowAnonymous]
         public async Task<ActionResult<TenantResponseDTO>> Create([FromBody] TenantDTO tenant, CancellationToken cancellationToken = default)
         {
             if (tenant == null) return BadRequest();
