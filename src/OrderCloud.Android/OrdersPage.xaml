@@ -2,280 +2,274 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OrderCloud.Android.OrdersPage"
-             BackgroundColor="#FAFAFA"
+             BackgroundColor="White"
              NavigationPage.HasNavigationBar="False">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" 
-          Padding="16" 
-          RowSpacing="12">
+    <Grid RowDefinitions="Auto,*,Auto" 
+          Padding="20">
 
         <!-- Header -->
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="8,0">
-            <Button Grid.Column="0"
-                    Text="☰"
-                    Clicked="OnMenuClicked"
-                    BackgroundColor="#FFFFFF"
-                    TextColor="#1A1A1A"
-                    WidthRequest="40"
-                    HeightRequest="40"
-                    CornerRadius="20"
-                    FontSize="18"/>
-
-            <VerticalStackLayout Grid.Column="1" Spacing="2">
+        <Grid Grid.Row="0" Margin="0,20,0,30" ColumnDefinitions="*,Auto">
+            <VerticalStackLayout Grid.Column="0" Spacing="8" VerticalOptions="Center">
                 <Label Text="Orders" 
-                       FontSize="22" 
+                       FontSize="24" 
                        FontAttributes="Bold"
-                       TextColor="#1A1A1A"
-                       FontFamily="SegoeUI"/>
+                       TextColor="#333333"
+                       HorizontalOptions="Start"/>
                 <Label x:Name="StatusLabel"
-                       Text="Loading orders..." 
-                       FontSize="12" 
-                       TextColor="#8C8C8C"/>
+                       Text="View and manage orders" 
+                       FontSize="13" 
+                       TextColor="#777777"
+                       HorizontalOptions="Start"/>
             </VerticalStackLayout>
-            
-            <Button Grid.Column="2"
-                    x:Name="RefreshBtn"
-                    Text="↻"
-                    Clicked="OnRefreshClicked"
-                    BackgroundColor="Transparent"
-                    TextColor="#666666"
-                    WidthRequest="40"
-                    HeightRequest="40"
-                    CornerRadius="20"
-                    FontSize="18"/>
+
+            <HorizontalStackLayout Grid.Column="1" Spacing="10">
+                <Button x:Name="RefreshBtn"
+                        Text="↻"
+                        Clicked="OnRefreshClicked"
+                        BackgroundColor="Transparent"
+                        TextColor="#333333"
+                        WidthRequest="44"
+                        HeightRequest="44"
+                        BorderWidth="1"
+                        BorderColor="#E0E0E0"
+                        FontSize="20"
+                        VerticalOptions="Start"/>
+
+                <Button Text="☰"
+                        Clicked="OnMenuClicked"
+                        BackgroundColor="Transparent"
+                        TextColor="#333333"
+                        WidthRequest="44"
+                        HeightRequest="44"
+                        BorderWidth="1"
+                        BorderColor="#E0E0E0"
+                        FontSize="20"
+                        VerticalOptions="Start"/>
+            </HorizontalStackLayout>
         </Grid>
 
         <!-- Orders List (shown when no order selected) -->
-        <CollectionView Grid.Row="2" 
-                        x:Name="OrdersCollectionView"
-                        SelectionMode="Single"
-                        SelectionChanged="OnOrderSelected">
-            <CollectionView.ItemsLayout>
-                <LinearItemsLayout Orientation="Vertical" ItemSpacing="8"/>
-            </CollectionView.ItemsLayout>
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Border StrokeShape="RoundRectangle 12" 
-                            StrokeThickness="0"
-                            BackgroundColor="#FFFFFF"
-                            Padding="16">
-                        <Border.Shadow>
-                            <Shadow Brush="#000000" 
-                                    Opacity="0.06" 
-                                    Radius="8" 
-                                    Offset="0,2"/>
-                        </Border.Shadow>
-                        
-                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
-                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-                                <Label Grid.Column="0"
-                                       FontSize="14" 
-                                       FontAttributes="Bold"
-                                       TextColor="#1A1A1A">
-                                    <Label.Text>
-                                        <MultiBinding StringFormat="Order #{0:N}">
-                                            <Binding Path="Id"/>
-                                        </MultiBinding>
-                                    </Label.Text>
-                                </Label>
-                                
-                                <Label Grid.Column="1"
-                                       Text="{Binding Status}" 
-                                       FontSize="12" 
-                                       FontAttributes="Bold"
-                                       TextColor="#FFFFFF"
-                                       Padding="10,4"
-                                       VerticalOptions="Center">
-                                    <Label.Triggers>
-                                        <DataTrigger TargetType="Label" Binding="{Binding Status}" Value="Completed">
-                                            <Setter Property="BackgroundColor" Value="#2ECC71"/>
-                                        </DataTrigger>
-                                        <DataTrigger TargetType="Label" Binding="{Binding Status}" Value="Pending">
-                                            <Setter Property="BackgroundColor" Value="#F39C12"/>
-                                        </DataTrigger>
-                                        <DataTrigger TargetType="Label" Binding="{Binding Status}" Value="Cancelled">
-                                            <Setter Property="BackgroundColor" Value="#E74C3C"/>
-                                        </DataTrigger>
-                                        <DataTrigger TargetType="Label" Binding="{Binding Status}" Value="Processing">
-                                            <Setter Property="BackgroundColor" Value="#3498DB"/>
-                                        </DataTrigger>
-                                        <DataTrigger TargetType="Label" Binding="{Binding Status}" Value="">
-                                            <Setter Property="BackgroundColor" Value="#8C8C8C"/>
-                                        </DataTrigger>
-                                    </Label.Triggers>
-                                </Label>
-                            </Grid>
-
-                            <BoxView Grid.Row="1" 
-                                     HeightRequest="1" 
-                                     Color="#F0F0F0"/>
-
-                            <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="12">
-                                <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                    <Label Text="Total" 
-                                           FontSize="10" 
-                                           TextColor="#8C8C8C"/>
-                                    <Label Text="{Binding Total, StringFormat='${0:F2}'}" 
-                                           FontSize="14" 
+        <ScrollView Grid.Row="1" VerticalOptions="FillAndExpand">
+            <CollectionView x:Name="OrdersCollectionView"
+                            SelectionMode="Single"
+                            SelectionChanged="OnOrderSelected">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="2"/>
+                </CollectionView.ItemsLayout>
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout Spacing="8" VerticalOptions="CenterAndExpand" HorizontalOptions="Center" Margin="0,100,0,0">
+                        <Label Text="No orders found" 
+                               FontSize="16" 
+                               TextColor="#777777"
+                               HorizontalOptions="Center"/>
+                        <Label Text="Orders will appear here once created" 
+                               FontSize="12" 
+                               TextColor="#999999"
+                               HorizontalOptions="Center"/>
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Border StrokeThickness="1"
+                                Stroke="#E0E0E0"
+                                BackgroundColor="White"
+                                Padding="20">
+                            <Grid RowDefinitions="Auto,Auto" RowSpacing="12">
+                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                                    <Label Grid.Column="0"
+                                           FontSize="16" 
                                            FontAttributes="Bold"
-                                           TextColor="#2ECC71"/>
-                                </VerticalStackLayout>
-                                
-                                <VerticalStackLayout Grid.Column="1" Spacing="2">
-                                    <Label Text="Created" 
-                                           FontSize="10" 
-                                           TextColor="#8C8C8C"/>
-                                    <Label Text="{Binding CreatedAt, StringFormat='{0:MMM dd, yyyy}'}" 
+                                           TextColor="#333333">
+                                        <Label.Text>
+                                            <MultiBinding StringFormat="Order #{0}">
+                                                <Binding Path="Id"/>
+                                            </MultiBinding>
+                                        </Label.Text>
+                                    </Label>
+
+                                    <Label Grid.Column="1"
+                                           Text="{Binding Status}" 
                                            FontSize="12" 
-                                           TextColor="#1A1A1A"/>
-                                </VerticalStackLayout>
-                                
-                                <VerticalStackLayout Grid.Column="2" Spacing="2">
-                                    <Label Text="Items" 
-                                           FontSize="10" 
-                                           TextColor="#8C8C8C"/>
-                                    <Label Text="{Binding Items.Count}" 
-                                           FontSize="12" 
-                                           TextColor="#1A1A1A"/>
-                                </VerticalStackLayout>
+                                           TextColor="#777777"
+                                           VerticalOptions="Center"/>
+                                </Grid>
+
+                                <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="15">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="4">
+                                        <Label Text="Total" 
+                                               FontSize="11" 
+                                               TextColor="#777777"/>
+                                        <Label Text="{Binding Total, StringFormat='${0:F2}'}" 
+                                               FontSize="14" 
+                                               FontAttributes="Bold"
+                                               TextColor="#333333"/>
+                                    </VerticalStackLayout>
+
+                                    <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                        <Label Text="Created" 
+                                               FontSize="11" 
+                                               TextColor="#777777"/>
+                                        <Label Text="{Binding CreatedAt, StringFormat='{0:MMM dd}'}" 
+                                               FontSize="13" 
+                                               TextColor="#333333"/>
+                                    </VerticalStackLayout>
+
+                                    <VerticalStackLayout Grid.Column="2" Spacing="4">
+                                        <Label Text="Items" 
+                                               FontSize="11" 
+                                               TextColor="#777777"/>
+                                        <Label Text="{Binding Items.Count}" 
+                                               FontSize="13" 
+                                               TextColor="#333333"/>
+                                    </VerticalStackLayout>
+                                </Grid>
                             </Grid>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </ScrollView>
 
         <!-- Order Detail (shown when order selected) -->
-        <Border Grid.Row="2"
+        <Border Grid.Row="1"
                 x:Name="OrderDetailCard"
-                StrokeShape="RoundRectangle 12"
-                StrokeThickness="0"
-                BackgroundColor="#FFFFFF"
-                Padding="0"
+                StrokeThickness="1"
+                Stroke="#E0E0E0"
+                BackgroundColor="White"
+                Padding="20"
                 IsVisible="False">
-            <Border.Shadow>
-                <Shadow Brush="#000000"
-                        Opacity="0.06"
-                        Radius="8"
-                        Offset="0,2"/>
-            </Border.Shadow>
 
-            <Grid RowDefinitions="Auto,Auto,Auto,*">
+            <Grid RowDefinitions="Auto,Auto,*,Auto">
                 <!-- Order Header -->
-                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="16">
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*" ColumnSpacing="16">
                     <Button Grid.Column="0"
                             Text="←"
                             Clicked="OnBackToOrdersClicked"
-                            BackgroundColor="#F5F5F5"
-                            TextColor="#1A1A1A"
-                            WidthRequest="36"
-                            HeightRequest="36"
-                            CornerRadius="18"
-                            FontSize="18"
-                            FontAttributes="Bold"/>
-                    
-                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                            BackgroundColor="Transparent"
+                            TextColor="#333333"
+                            WidthRequest="44"
+                            HeightRequest="44"
+                            BorderWidth="1"
+                            BorderColor="#E0E0E0"
+                            FontSize="20"
+                            FontAttributes="Bold"
+                            VerticalOptions="Start"/>
+
+                    <VerticalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
                         <Label x:Name="OrderTitle"
                                FontSize="16"
                                FontAttributes="Bold"
-                               TextColor="#1A1A1A"/>
-                        <Label x:Name="OrderDate"
-                               FontSize="12"
-                               TextColor="#8C8C8C"/>
+                               TextColor="#333333"/>
+                        <HorizontalStackLayout Spacing="15">
+                            <Label x:Name="OrderDate"
+                                   FontSize="12"
+                                   TextColor="#777777"/>
+                            <Label x:Name="OrderStatus"
+                                   FontSize="12"
+                                   TextColor="#777777"/>
+                        </HorizontalStackLayout>
                     </VerticalStackLayout>
-
-                    <Label Grid.Column="2"
-                           x:Name="OrderStatus"
-                           FontSize="12"
-                           FontAttributes="Bold"
-                           TextColor="#FFFFFF"
-                           Padding="10,4"
-                           VerticalOptions="Center"/>
                 </Grid>
 
+                <!-- Divider -->
                 <BoxView Grid.Row="1"
                          HeightRequest="1"
-                         Color="#F0F0F0"
-                         Margin="16,0"/>
-
-                <!-- Items Header -->
-                <Label Grid.Row="2"
-                       Text="Items"
-                       FontSize="14"
-                       FontAttributes="Bold"
-                       TextColor="#1A1A1A"
-                       Margin="16,12,16,8"/>
+                         Color="#E0E0E0"
+                         Margin="0,20"/>
 
                 <!-- Items List -->
-                <CollectionView Grid.Row="3"
-                                x:Name="OrderItemsCollectionView"
-                                SelectionMode="None">
-                    <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="6"/>
-                    </CollectionView.ItemsLayout>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <Border StrokeShape="RoundRectangle 8"
-                                    StrokeThickness="0"
-                                    BackgroundColor="#FAFAFA"
-                                    Margin="16,0,16,0"
-                                    Padding="12">
-                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
-                                    <Label Grid.Column="0"
-                                           Text="{Binding Name}"
-                                           FontSize="13"
-                                           FontAttributes="Bold"
-                                           TextColor="#1A1A1A"
-                                           LineBreakMode="TailTruncation"
-                                           MaxLines="1"/>
-                                    
-                                    <Label Grid.Column="1"
-                                           Text="{Binding Quantity, StringFormat='× {0}'}"
-                                           FontSize="13"
-                                           TextColor="#8C8C8C"
-                                           VerticalOptions="Center"/>
-                                    
-                                    <Label Grid.Column="2"
-                                           Text="{Binding Total, StringFormat='${0:F2}'}"
-                                           FontSize="14"
-                                           FontAttributes="Bold"
-                                           TextColor="#2ECC71"/>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
+                <ScrollView Grid.Row="2" VerticalOptions="FillAndExpand">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="Items"
+                               FontSize="13"
+                               FontAttributes="Bold"
+                               TextColor="#333333"
+                               Margin="0,0,0,15"/>
+
+                        <CollectionView x:Name="OrderItemsCollectionView"
+                                        SelectionMode="None">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Vertical" ItemSpacing="0"/>
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Border StrokeThickness="0,0,0,1"
+                                            Stroke="#E0E0E0"
+                                            BackgroundColor="White"
+                                            Padding="0,12">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding Name}"
+                                                   FontSize="13"
+                                                   TextColor="#333333"
+                                                   LineBreakMode="TailTruncation"
+                                                   MaxLines="1"
+                                                   VerticalOptions="Center"/>
+
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding Quantity, StringFormat='× {0}'}"
+                                                   FontSize="12"
+                                                   TextColor="#777777"
+                                                   VerticalOptions="Center"/>
+
+                                            <Label Grid.Column="2"
+                                                   Text="{Binding Total, StringFormat='${0:F2}'}"
+                                                   FontSize="13"
+                                                   FontAttributes="Bold"
+                                                   TextColor="#333333"
+                                                   VerticalOptions="Center"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </ScrollView>
+
+                <!-- Total -->
+                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,20,0,0">
+                    <Label Grid.Column="0"
+                           Text="Total"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="#333333"
+                           VerticalOptions="Center"/>
+                    <Label Grid.Column="1"
+                           x:Name="OrderTotalLabel"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="#333333"
+                           VerticalOptions="Center"/>
+                </Grid>
             </Grid>
         </Border>
 
         <!-- Payment Buttons (shown when order selected) -->
-        <Grid Grid.Row="3"
-              x:Name="PaymentActions"
-              ColumnDefinitions="*,*"
-              ColumnSpacing="10"
-              IsVisible="False">
-            <Button Grid.Column="0"
-                    x:Name="PayCashBtn"
-                    Text="💵 Cash"
+        <HorizontalStackLayout Grid.Row="2"
+                               x:Name="PaymentActions"
+                               Spacing="2"
+                               IsVisible="False">
+            <Button x:Name="PayCashBtn"
+                    Text="Pay Cash"
                     Clicked="OnPayCashClicked"
-                    BackgroundColor="#1A1A1A"
-                    TextColor="#FFFFFF"
-                    FontSize="14"
+                    BackgroundColor="#333333"
+                    TextColor="White"
+                    FontSize="13"
                     FontAttributes="Bold"
                     HeightRequest="48"
-                    CornerRadius="8"/>
+                    HorizontalOptions="FillAndExpand"/>
 
-            <Button Grid.Column="1"
-                    x:Name="PayCardBtn"
-                    Text="💳 Card"
+            <Button x:Name="PayCardBtn"
+                    Text="Pay Card"
                     Clicked="OnPayCardClicked"
-                    BackgroundColor="#2ECC71"
-                    TextColor="#FFFFFF"
-                    FontSize="14"
+                    BackgroundColor="#333333"
+                    TextColor="White"
+                    FontSize="13"
                     FontAttributes="Bold"
                     HeightRequest="48"
-                    CornerRadius="8"/>
-        </Grid>
+                    HorizontalOptions="FillAndExpand"/>
+        </HorizontalStackLayout>
 
     </Grid>
 

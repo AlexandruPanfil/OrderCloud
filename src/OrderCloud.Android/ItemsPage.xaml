@@ -2,84 +2,81 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OrderCloud.Android.ItemsPage"
-             BackgroundColor="#FAFAFA"
+             BackgroundColor="White"
              NavigationPage.HasNavigationBar="False">
 
     <Grid RowDefinitions="Auto,Auto,*,Auto" 
-          Padding="16" 
-          RowSpacing="12">
+          Padding="20" 
+          RowSpacing="15">
 
         <!-- Header -->
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="8,0">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="15" Padding="0">
             <Button Grid.Column="0"
                     Text="☰"
                     Clicked="OnMenuClicked"
-                    BackgroundColor="#FFFFFF"
-                    TextColor="#1A1A1A"
+                    BackgroundColor="Transparent"
+                    TextColor="#333333"
                     WidthRequest="40"
                     HeightRequest="40"
-                    CornerRadius="20"
+                    BorderWidth="1"
+                    BorderColor="#E0E0E0"
                     FontSize="18"/>
 
-            <VerticalStackLayout Grid.Column="1" Spacing="2">
+            <VerticalStackLayout Grid.Column="1" Spacing="4">
                 <Label Text="New Sale" 
-                       FontSize="22" 
+                       FontSize="18" 
                        FontAttributes="Bold"
-                       TextColor="#1A1A1A"/>
+                       TextColor="#333333"/>
                 <Label x:Name="StatusLabel"
                        Text="Select items to sell" 
                        FontSize="12" 
-                       TextColor="#8C8C8C"/>
+                       TextColor="#777777"/>
             </VerticalStackLayout>
-            
+
             <Button Grid.Column="2"
                     x:Name="RefreshBtn"
                     Text="↻"
                     Clicked="OnRefreshClicked"
                     BackgroundColor="Transparent"
-                    TextColor="#666666"
+                    TextColor="#333333"
                     WidthRequest="40"
                     HeightRequest="40"
-                    CornerRadius="20"
+                    BorderWidth="1"
+                    BorderColor="#E0E0E0"
                     FontSize="18"/>
         </Grid>
 
         <!-- Main Content: Two Columns -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="16">
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="2">
 
             <!-- Left: Catalog Items -->
             <Border Grid.Column="0" 
-                    StrokeShape="RoundRectangle 12" 
-                    StrokeThickness="0"
-                    BackgroundColor="#FFFFFF"
-                    Padding="0">
-                <Border.Shadow>
-                    <Shadow Brush="#000000" 
-                            Opacity="0.06" 
-                            Radius="8" 
-                            Offset="0,2"/>
-                </Border.Shadow>
-                
-                <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16">
+                    Stroke="#E0E0E0"
+                    StrokeThickness="1"
+                    BackgroundColor="White"
+                    Padding="15">
+
+                <Grid RowDefinitions="Auto,Auto,Auto,*">
                     <Label Grid.Row="0" 
                            Text="Catalog" 
-                           FontSize="15" 
+                           FontSize="14" 
                            FontAttributes="Bold"
-                           TextColor="#1A1A1A"
-                           Margin="0,0,0,8"/>
-                    
+                           TextColor="#333333"
+                           Margin="0,0,0,10"/>
+
                     <BoxView Grid.Row="1" 
                              HeightRequest="1" 
-                             Color="#F0F0F0"
-                             Margin="0,0,0,8"/>
-                    
+                             Color="#E0E0E0"
+                             Margin="0,0,0,10"/>
+
                     <!-- Search Bar -->
                     <Border Grid.Row="2"
-                            StrokeShape="RoundRectangle 8"
-                            StrokeThickness="0"
-                            BackgroundColor="#F5F5F5"
-                            Margin="0,0,0,12">
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Padding="12,8">
+                            Stroke="#E0E0E0"
+                            StrokeThickness="1"
+                            BackgroundColor="White"
+                            Padding="10"
+                            Margin="0,0,0,15">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                             <Label Grid.Column="0"
                                    Text="🔍"
                                    FontSize="14"
@@ -98,34 +95,32 @@
                         <CollectionView x:Name="CatalogItemsCollectionView" 
                                         SelectionMode="None">
                             <CollectionView.ItemsLayout>
-                                <LinearItemsLayout Orientation="Vertical" ItemSpacing="6"/>
+                                <LinearItemsLayout Orientation="Vertical" ItemSpacing="0"/>
                             </CollectionView.ItemsLayout>
                             <CollectionView.ItemTemplate>
                                 <DataTemplate>
-                                    <Border StrokeShape="RoundRectangle 8"
-                                            StrokeThickness="0"
-                                            BackgroundColor="#FAFAFA"
-                                            Padding="12">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                            <VerticalStackLayout Grid.Column="0" Spacing="3">
+                                    <Border Stroke="#E0E0E0"
+                                            StrokeThickness="0,0,0,1"
+                                            BackgroundColor="White"
+                                            Padding="10">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                            <VerticalStackLayout Grid.Column="0" Spacing="4">
                                                 <Label Text="{Binding Name}" 
                                                        FontSize="13" 
-                                                       FontAttributes="Bold"
-                                                       TextColor="#1A1A1A"
+                                                       TextColor="#333333"
                                                        LineBreakMode="TailTruncation"
                                                        MaxLines="1"/>
                                                 <Label Text="{Binding Price, StringFormat='${0:F2}'}" 
                                                        FontSize="12" 
-                                                       TextColor="#2ECC71"/>
+                                                       TextColor="#777777"/>
                                             </VerticalStackLayout>
-                                            
+
                                             <Button Grid.Column="1"
                                                     Text="+"
                                                     WidthRequest="32"
                                                     HeightRequest="32"
-                                                    CornerRadius="16"
-                                                    BackgroundColor="#1A1A1A"
-                                                    TextColor="#FFFFFF"
+                                                    BackgroundColor="#333333"
+                                                    TextColor="White"
                                                     FontSize="16"
                                                     FontAttributes="Bold"
                                                     Clicked="OnAddToCartClicked"
@@ -141,100 +136,95 @@
 
             <!-- Right: Cart -->
             <Border Grid.Column="1" 
-                    StrokeShape="RoundRectangle 12" 
-                    StrokeThickness="0"
-                    BackgroundColor="#FFFFFF"
-                    Padding="0">
-                <Border.Shadow>
-                    <Shadow Brush="#000000" 
-                            Opacity="0.06" 
-                            Radius="8" 
-                            Offset="0,2"/>
-                </Border.Shadow>
-                
-                <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="16">
+                    Stroke="#E0E0E0"
+                    StrokeThickness="1"
+                    BackgroundColor="White"
+                    Padding="15">
+
+                <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
                     <Label Grid.Row="0" 
                            Text="Cart" 
-                           FontSize="15" 
+                           FontSize="14" 
                            FontAttributes="Bold"
-                           TextColor="#1A1A1A"
-                           Margin="0,0,0,8"/>
-                    
+                           TextColor="#333333"
+                           Margin="0,0,0,10"/>
+
                     <BoxView Grid.Row="1" 
                              HeightRequest="1" 
-                             Color="#F0F0F0"
-                             Margin="0,0,0,8"/>
-                    
+                             Color="#E0E0E0"
+                             Margin="0,0,0,10"/>
+
                     <!-- Cart Items -->
                     <CollectionView Grid.Row="2"
                                     x:Name="CartCollectionView" 
                                     SelectionMode="None"
                                     VerticalOptions="FillAndExpand">
                         <CollectionView.ItemsLayout>
-                            <LinearItemsLayout Orientation="Vertical" ItemSpacing="6"/>
+                            <LinearItemsLayout Orientation="Vertical" ItemSpacing="0"/>
                         </CollectionView.ItemsLayout>
                         <CollectionView.EmptyView>
                             <VerticalStackLayout Spacing="8" VerticalOptions="CenterAndExpand">
                                 <Label Text="No items in cart" 
-                                       FontSize="14" 
-                                       TextColor="#8C8C8C"
+                                       FontSize="13" 
+                                       TextColor="#777777"
                                        HorizontalOptions="Center"/>
                                 <Label Text="Tap + to add items" 
                                        FontSize="12" 
-                                       TextColor="#B0B0B0"
+                                       TextColor="#999999"
                                        HorizontalOptions="Center"/>
                             </VerticalStackLayout>
                         </CollectionView.EmptyView>
                         <CollectionView.ItemTemplate>
                             <DataTemplate>
-                                <Border StrokeShape="RoundRectangle 8"
-                                        StrokeThickness="0"
-                                        BackgroundColor="#FAFAFA"
-                                        Padding="12">
+                                <Border Stroke="#E0E0E0"
+                                        StrokeThickness="0,0,0,1"
+                                        BackgroundColor="White"
+                                        Padding="10">
                                     <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
-                                        <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="4">
                                             <Label Text="{Binding Name}" 
                                                    FontSize="13" 
-                                                   FontAttributes="Bold"
-                                                   TextColor="#1A1A1A"
+                                                   TextColor="#333333"
                                                    LineBreakMode="TailTruncation"
                                                    MaxLines="1"/>
                                             <Label Text="{Binding Price, StringFormat='${0:F2}'}" 
                                                    FontSize="11" 
-                                                   TextColor="#8C8C8C"/>
+                                                   TextColor="#777777"/>
                                         </VerticalStackLayout>
-                                        
+
                                         <!-- Quantity - -->
                                         <Button Grid.Column="1"
                                                 Text="−"
                                                 WidthRequest="28"
                                                 HeightRequest="28"
-                                                CornerRadius="14"
-                                                BackgroundColor="#F5F5F5"
-                                                TextColor="#1A1A1A"
+                                                BackgroundColor="Transparent"
+                                                TextColor="#333333"
+                                                BorderWidth="1"
+                                                BorderColor="#E0E0E0"
                                                 FontSize="14"
                                                 FontAttributes="Bold"
                                                 Clicked="OnDecreaseQuantityClicked"
                                                 CommandParameter="{Binding .}"/>
-                                        
+
                                         <!-- Quantity -->
                                         <Label Grid.Column="2"
                                                Text="{Binding Quantity}"
                                                FontSize="13"
                                                FontAttributes="Bold"
-                                               TextColor="#1A1A1A"
+                                               TextColor="#333333"
                                                WidthRequest="24"
                                                HorizontalTextAlignment="Center"
                                                VerticalOptions="Center"/>
-                                        
+
                                         <!-- Quantity + -->
                                         <Button Grid.Column="3"
                                                 Text="+"
                                                 WidthRequest="28"
                                                 HeightRequest="28"
-                                                CornerRadius="14"
-                                                BackgroundColor="#F5F5F5"
-                                                TextColor="#1A1A1A"
+                                                BackgroundColor="Transparent"
+                                                TextColor="#333333"
+                                                BorderWidth="1"
+                                                BorderColor="#E0E0E0"
                                                 FontSize="14"
                                                 FontAttributes="Bold"
                                                 Clicked="OnIncreaseQuantityClicked"
@@ -244,25 +234,25 @@
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
-                    
+
                     <!-- Totals -->
                     <BoxView Grid.Row="3" 
                              HeightRequest="1" 
-                             Color="#F0F0F0"
-                             Margin="0,12,0,12"/>
-                    
+                             Color="#E0E0E0"
+                             Margin="0,15,0,15"/>
+
                     <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <Label Grid.Column="0"
                                Text="Total" 
-                               FontSize="16" 
+                               FontSize="14" 
                                FontAttributes="Bold"
-                               TextColor="#1A1A1A"/>
+                               TextColor="#333333"/>
                         <Label Grid.Column="1"
                                x:Name="TotalLabel"
                                Text="$0.00" 
-                               FontSize="18" 
+                               FontSize="16" 
                                FontAttributes="Bold"
-                               TextColor="#2ECC71"
+                               TextColor="#333333"
                                HorizontalTextAlignment="End"/>
                     </Grid>
                 </Grid>
@@ -271,39 +261,38 @@
         </Grid>
 
         <!-- Payment Actions -->
-        <Grid Grid.Row="3" ColumnDefinitions="*,*,Auto" ColumnSpacing="10">
+        <Grid Grid.Row="3" ColumnDefinitions="*,*,Auto" ColumnSpacing="2">
             <Button Grid.Column="0"
                     x:Name="PayCashBtn"
-                    Text="💵 Cash"
+                    Text="Cash"
                     Clicked="OnPayCashClicked"
-                    BackgroundColor="#1A1A1A"
-                    TextColor="#FFFFFF"
-                    FontSize="14"
+                    BackgroundColor="#333333"
+                    TextColor="White"
+                    FontSize="13"
                     FontAttributes="Bold"
-                    HeightRequest="48"
-                    CornerRadius="8"/>
+                    HeightRequest="44"/>
 
             <Button Grid.Column="1"
                     x:Name="PayCardBtn"
-                    Text="💳 Card"
+                    Text="Card"
                     Clicked="OnPayCardClicked"
-                    BackgroundColor="#2ECC71"
-                    TextColor="#FFFFFF"
-                    FontSize="14"
+                    BackgroundColor="#333333"
+                    TextColor="White"
+                    FontSize="13"
                     FontAttributes="Bold"
-                    HeightRequest="48"
-                    CornerRadius="8"/>
-            
+                    HeightRequest="44"/>
+
             <Button Grid.Column="2"
                     x:Name="ClearCartBtn"
                     Text="Clear"
                     Clicked="OnClearCartClicked"
-                    BackgroundColor="#F5F5F5"
-                    TextColor="#8C8C8C"
-                    FontSize="14"
+                    BackgroundColor="Transparent"
+                    TextColor="#333333"
+                    BorderWidth="1"
+                    BorderColor="#E0E0E0"
+                    FontSize="13"
                     FontAttributes="Bold"
-                    HeightRequest="48"
-                    CornerRadius="8"
+                    HeightRequest="44"
                     WidthRequest="80"/>
         </Grid>
 

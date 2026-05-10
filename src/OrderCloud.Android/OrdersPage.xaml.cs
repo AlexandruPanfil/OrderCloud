@@ -69,7 +69,7 @@ public partial class OrdersPage : ContentPage
         OrderTitle.Text = $"Order #{shortId}";
         OrderDate.Text = order.CreatedAt.ToString("MMM dd, yyyy HH:mm");
         OrderStatus.Text = order.Status;
-        OrderStatus.BackgroundColor = GetStatusColor(order.Status);
+        OrderTotalLabel.Text = $"${order.Total:F2}";
 
         OrderItemsCollectionView.ItemsSource = order.Items;
     }

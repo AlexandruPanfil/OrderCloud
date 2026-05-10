@@ -2,39 +2,45 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OrderCloud.Android.LoginPage"
-             Title="Login">
-    
+             Title="Login"
+             BackgroundColor="White">
+
     <ScrollView>
         <VerticalStackLayout
             Padding="30,0"
-            Spacing="25"
+            Spacing="20"
             VerticalOptions="Center">
-            
+
             <Label
                 Text="Login"
-                Style="{StaticResource Headline}"
-                SemanticProperties.HeadingLevel="Level1"
+                FontSize="28"
+                FontAttributes="Bold"
+                TextColor="#333333"
                 HorizontalOptions="Center" />
 
             <Label
                 Text="Sign in to your account"
-                Style="{StaticResource SubHeadline}"
-                SemanticProperties.HeadingLevel="Level2"
-                HorizontalOptions="Center" />
+                FontSize="14"
+                TextColor="#777777"
+                HorizontalOptions="Center"
+                Margin="0,0,0,20" />
 
-            <Frame
-                BorderColor="#E0E0E0"
-                CornerRadius="10"
-                Padding="14"
+            <Border
+                Stroke="#E0E0E0"
+                StrokeThickness="1"
+                Padding="20"
+                BackgroundColor="White"
                 Margin="0,10,0,0">
-                <VerticalStackLayout Spacing="10">
+                <VerticalStackLayout Spacing="15">
                     <Label Text="Device Activation"
-                           FontAttributes="Bold" />
+                           FontAttributes="Bold"
+                           TextColor="#333333"
+                           FontSize="14" />
 
                     <Label x:Name="ActivationStatusLabel"
                            Text="Device is not activated"
                            FontSize="12"
-                           TextColor="Gray" />
+                           TextColor="#777777" />
 
                     <Entry
                         x:Name="ActivationCodeEntry"
@@ -46,7 +52,7 @@
                         Clicked="OnActivateDeviceClicked"
                         HorizontalOptions="Fill" />
                 </VerticalStackLayout>
-            </Frame>
+            </Border>
 
             <Entry
                 x:Name="UsernameEntry"
@@ -63,15 +69,19 @@
                 Text="Login"
                 Clicked="OnLoginClicked"
                 HorizontalOptions="Fill"
-                Margin="0,20,0,0" />
+                Margin="0,10,0,0" />
 
             <Button
                 x:Name="LogoutBtn"
                 Text="Logout"
                 Clicked="OnLogoutClicked"
                 HorizontalOptions="Fill"
+                BackgroundColor="Transparent"
+                TextColor="#333333"
+                BorderWidth="1"
+                BorderColor="#E0E0E0"
                 IsVisible="False" />
-            
+
         </VerticalStackLayout>
     </ScrollView>
 
