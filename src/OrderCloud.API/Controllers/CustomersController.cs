@@ -23,8 +23,10 @@ namespace OrderCloud.API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CustomerDTO>>> GetAll(CancellationToken cancellationToken = default)
         {
-            // Customers не привязаны к Tenant, возвращаем все
-            var list = await _db.Customers.AsNoTracking().ToListAsync(cancellationToken);
+            var list = await _db.Customers
+                .Include(c => c.Tenant)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken);
             return Ok(list);
         }
 
@@ -42,6 +44,17 @@ namespace OrderCloud.API.Controllers
             if (customer == null) return BadRequest();
 
             if (customer.Id == Guid.Empty) customer.Id = Guid.NewGuid();
+
+            if (customer.TenantId == Guid.Empty)
+            {
+                return BadRequest("TenantId is required.");
+            }
+
+            var tenantExists = await _db.Tenants.AnyAsync(t => t.Id == customer.TenantId, cancellationToken);
+            if (!tenantExists)
+            {
+                return BadRequest("Invalid TenantId.");
+            }
 
             _db.Customers.Add(customer);
             try
@@ -67,6 +80,16 @@ namespace OrderCloud.API.Controllers
 
             existing.Name = customer.Name;
             existing.IDNO = customer.IDNO;
+
+            if (customer.TenantId != Guid.Empty && customer.TenantId != existing.TenantId)
+            {
+                var tenantExists = await _db.Tenants.AnyAsync(t => t.Id == customer.TenantId, cancellationToken);
+                if (!tenantExists)
+                {
+                    return BadRequest("Invalid TenantId.");
+                }
+                existing.TenantId = customer.TenantId;
+            }
 
             try
             {

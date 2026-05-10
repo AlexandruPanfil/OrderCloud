@@ -61,6 +61,10 @@ namespace OrderCloud.Shared.Data
                 // Заменяем "CustomerDTO" на "Customers"
                 b.ToTable("Customers");
                 b.HasKey(c => c.Id);
+                b.HasOne(c => c.Tenant)
+                    .WithMany()
+                    .HasForeignKey(c => c.TenantId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<DeviceDTO>(b =>

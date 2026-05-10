@@ -1,8 +1,11 @@
 @page "/customers"
+@implements IDisposable
 @using OrderCloud.Shared.Models
 @using OrderCloud.Blazor.Services
 @inject ICustomerService CustomerService
+@inject ITenantSelectionService TenantSelectionService
 @inject IJSRuntime JS
+@inject ILogger<Customers> Logger
 @rendermode InteractiveServer
 
 <PageTitle>Customers</PageTitle>
@@ -121,6 +124,20 @@
                     <EditForm Model="formCustomer" OnSubmit="SaveAsync" class="customer-form">
                         <div class="form-row">
                             <div class="form-group">
+                                <label class="form-label">Tenant</label>
+                                <InputSelect class="form-input" @bind-Value="CustomerTenantIdStr">
+                                    <option value="">-- Select Tenant --</option>
+                                    @foreach (var tenant in VisibleTenants)
+                                    {
+                                        <option value="@tenant.Id">@tenant.Name</option>
+                                    }
+                                </InputSelect>
+                                <small class="form-hint">Select the tenant this customer belongs to</small>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
                                 <label class="form-label">Customer Name</label>
                                 <InputText class="form-input" @bind-Value="formCustomer.Name" placeholder="Enter customer name" />
                                 <small class="form-hint">Full name or company name</small>
@@ -190,6 +207,20 @@
                     <EditForm Model="formCustomer" OnSubmit="SaveAsync" class="customer-form">
                         <div class="form-row">
                             <div class="form-group">
+                                <label class="form-label">Tenant</label>
+                                <InputSelect class="form-input" @bind-Value="CustomerTenantIdStr">
+                                    <option value="">-- Select Tenant --</option>
+                                    @foreach (var tenant in VisibleTenants)
+                                    {
+                                        <option value="@tenant.Id">@tenant.Name</option>
+                                    }
+                                </InputSelect>
+                                <small class="form-hint">Select the tenant this customer belongs to</small>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
                                 <label class="form-label">Customer Name</label>
                                 <InputText class="form-input" @bind-Value="formCustomer.Name" placeholder="Enter customer name" />
                                 <small class="form-hint">Full name or company name</small>
@@ -247,6 +278,13 @@
                                     <label>Name</label>
                                     <div class="detail-value">@selectedCustomer.Name</div>
                                 </div>
+                                @if (selectedCustomer.Tenant != null)
+                                {
+                                    <div class="detail-item">
+                                        <label>Tenant</label>
+                                        <div class="detail-value">@selectedCustomer.Tenant.Name</div>
+                                    </div>
+                                }
                             </div>
                         </div>
 
@@ -291,7 +329,18 @@
     private string? pageError;
     private string? formError;
 
+    private Guid? CurrentTenantId => TenantSelectionService.SelectedTenantId;
+    private IReadOnlyList<TenantDTO> VisibleTenants => TenantSelectionService.AvailableTenants;
+
+    private string CustomerTenantIdStr
+    {
+        get => formCustomer.TenantId == Guid.Empty ? string.Empty : formCustomer.TenantId.ToString();
+        set => formCustomer.TenantId = Guid.TryParse(value, out var tenantId) ? tenantId : Guid.Empty;
+    }
+
     private IEnumerable<CustomerDTO> FilteredCustomers => customers
+        .Where(customer => TenantSelectionService.CanAccessTenant(customer.TenantId))
+        .Where(customer => !CurrentTenantId.HasValue || customer.TenantId == CurrentTenantId.Value)
         .Where(customer => string.IsNullOrWhiteSpace(searchTerm)
             || (customer.Name?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
             || (customer.IDNO?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
@@ -300,6 +349,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await TenantSelectionService.EnsureInitializedAsync();
+        TenantSelectionService.Changed += OnTenantChanged;
         await LoadDataAsync();
     }
 
@@ -307,11 +358,14 @@
     {
         isLoading = true;
         pageError = null;
+        StateHasChanged();
 
         try
         {
+            await TenantSelectionService.RefreshAsync();
             customers.Clear();
             customers.AddRange(await CustomerService.GetAllAsync());
+            Logger.LogInformation("Loaded {Count} customers", customers.Count);
 
             // Update selected customer if it still exists
             if (selectedCustomer != null)
@@ -323,7 +377,8 @@
         catch (Exception ex)
         {
             customers.Clear();
-            pageError = ex.Message;
+            pageError = $"Failed to load customers: {ex.Message}";
+            Logger.LogError(ex, "Error loading customers");
         }
         finally
         {
@@ -344,6 +399,10 @@
     private void StartCreate()
     {
         formCustomer = CreateEmptyCustomer();
+        if (CurrentTenantId.HasValue)
+        {
+            formCustomer.TenantId = CurrentTenantId.Value;
+        }
         selectedCustomer = null;
         formError = null;
         isCreating = true;
@@ -385,6 +444,12 @@
         if (string.IsNullOrWhiteSpace(formCustomer.Name))
         {
             formError = "Name is required.";
+            return;
+        }
+
+        if (formCustomer.TenantId == Guid.Empty)
+        {
+            formError = "Tenant is required.";
             return;
         }
 
@@ -459,13 +524,29 @@
     {
         Id = customer.Id,
         Name = customer.Name,
-        IDNO = customer.IDNO
+        IDNO = customer.IDNO,
+        TenantId = customer.TenantId
     };
 
     private static CustomerDTO CreateEmptyCustomer() => new()
     {
         Id = Guid.Empty,
         Name = string.Empty,
-        IDNO = string.Empty 
+        IDNO = string.Empty,
+        TenantId = Guid.Empty
     };
+
+    private void OnTenantChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadDataAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        TenantSelectionService.Changed -= OnTenantChanged;
+    }
 }
