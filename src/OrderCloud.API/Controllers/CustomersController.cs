@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrderCloud.Shared.Data;
@@ -21,6 +22,7 @@ namespace OrderCloud.API.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CustomerDTO>>> GetAll(CancellationToken cancellationToken = default)
         {
+            // Customers не привязаны к Tenant, возвращаем все
             var list = await _db.Customers.AsNoTracking().ToListAsync(cancellationToken);
             return Ok(list);
         }
@@ -64,7 +66,6 @@ namespace OrderCloud.API.Controllers
 
             existing.Name = customer.Name;
             existing.IDNO = customer.IDNO;
-            //existing.PhoneNumber = customer.PhoneNumber;
 
             try
             {

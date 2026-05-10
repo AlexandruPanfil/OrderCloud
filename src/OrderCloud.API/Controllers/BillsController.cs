@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrderCloud.Shared.Data;
@@ -96,6 +97,17 @@ namespace OrderCloud.API.Controllers
                 return BadRequest("Payment method is required.");
             }
 
+            if (bill.TenantId == Guid.Empty)
+            {
+                return BadRequest("Tenant is required.");
+            }
+
+            var tenantExists = await _db.Tenants.AnyAsync(t => t.Id == bill.TenantId, cancellationToken);
+            if (!tenantExists)
+            {
+                return BadRequest("Selected tenant was not found.");
+            }
+
             try
             {
                 if (bill.Id == Guid.Empty)
@@ -165,7 +177,9 @@ namespace OrderCloud.API.Controllers
         {
             try
             {
-                var bills = await _db.Bills.AsNoTracking().ToListAsync(cancellationToken);
+                var bills = await _db.Bills
+                    .AsNoTracking()
+                    .ToListAsync(cancellationToken);
 
                 var statistics = new
                 {
@@ -185,6 +199,6 @@ namespace OrderCloud.API.Controllers
                 return StatusCode(500, "Error retrieving statistics");
             }
         }
-    }
-}
+            }
+        }
 

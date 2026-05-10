@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrderCloud.Shared.Data;
@@ -53,7 +54,6 @@ namespace OrderCloud.API.Controllers
 
             if (order == null) return NotFound();
 
-            // Для избежания циклов сериализации отключаем обратные ссылки у дочерних объектов перед отправкой ответа.
             if (order.Items != null)
             {
                 foreach (var item in order.Items)
@@ -71,7 +71,6 @@ namespace OrderCloud.API.Controllers
             if (order == null) return BadRequest();
             if (order.Id == Guid.Empty) order.Id = Guid.NewGuid();
 
-            // Проверяем и заполняем зависимости
             if (!await PrepareOrderForSaveAsync(order, cancellationToken))
             {
                 return ValidationProblem(ModelState);
@@ -126,22 +125,23 @@ namespace OrderCloud.API.Controllers
         public async Task<ActionResult<OrderDTO>> Update(Guid id, [FromBody] OrderDTO order, CancellationToken cancellationToken = default)
         {
             if (order == null || id == Guid.Empty) return BadRequest();
+
             if (!await PrepareOrderForSaveAsync(order, cancellationToken))
             {
                 return ValidationProblem(ModelState);
             }
 
-            var existing = await _db.Orders.Include(o => o.Items).FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
+            var existing = await _db.Orders
+                .Include(o => o.Items)
+                .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
+            
             if (existing == null) return NotFound();
 
-            // Map allowed fields
             existing.Status = order.Status;
-            existing.TenantId = order.TenantId;
             existing.LocalUserId = order.LocalUserId;
             existing.CustomerId = order.CustomerId;
             existing.UpdatedAt = DateTime.UtcNow;
 
-            // Sync items in-place so EF does not treat detached children as brand new rows.
             var incomingItems = order.Items ?? new List<ItemDTO>();
             var existingItemsById = existing.Items?.ToDictionary(item => item.Id) ?? new Dictionary<Guid, ItemDTO>();
             var incomingItemIds = new HashSet<Guid>();
@@ -180,7 +180,6 @@ namespace OrderCloud.API.Controllers
                 }
             }
 
-            // Do not attach navigation objects for related existing entities
             existing.Tenant = null;
             existing.Customer = null;
             existing.LocalUser = null;
@@ -211,7 +210,7 @@ namespace OrderCloud.API.Controllers
         [HttpDelete("{id:guid}")]
         public async Task<ActionResult> Delete(Guid id, CancellationToken cancellationToken = default)
         {
-            var existing = await _db.Orders.FindAsync(new object[] { id }, cancellationToken);
+            var existing = await _db.Orders.FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
             if (existing == null) return NotFound();
 
             _db.Orders.Remove(existing);
@@ -219,14 +218,9 @@ namespace OrderCloud.API.Controllers
             return NoContent();
         }
 
-        // Items endpoints delegate to EF as needed (omitted for brevity — implement similarly to in-memory version but using _db and SaveChanges)
-
         private async Task<bool> PrepareOrderForSaveAsync(OrderDTO order, CancellationToken cancellationToken)
         {
-            // Resolve tenant by ID (from the navigation property or TenantId field)
-            var tenantId = order.TenantId != Guid.Empty 
-                ? order.TenantId 
-                : order.Tenant?.Id ?? Guid.Empty;
+            var tenantId = order.TenantId;
 
             if (tenantId == Guid.Empty)
             {
@@ -243,8 +237,6 @@ namespace OrderCloud.API.Controllers
                 return false;
             }
 
-            order.TenantId = tenant.Id;
-
             var localUser = await ResolveLocalUserAsync(order, tenant.Id, cancellationToken);
             if (localUser == null) 
             {
@@ -254,38 +246,12 @@ namespace OrderCloud.API.Controllers
             order.LocalUserId = localUser.Id;
             await ResolveCustomerAsync(order, cancellationToken);
 
-            // Detach objects that should not be re-created
             order.Tenant = null;
             order.LocalUser = null;
             order.Customer = null;
 
             return ModelState.IsValid;
         }
-
-        //private async Task<TenantDTO?> ResolveTenantAsync(OrderDTO order, CancellationToken cancellationToken)
-        //{
-        //    var apiKey = order.Tenant?.ApiKey;
-        //    var apiSecret = order.Tenant?.ApiSecret;
-
-        //    if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(apiSecret))
-        //    {
-        //        ModelState.AddModelError(nameof(order.Tenant), "Tenant api key and secret key are required.");
-        //        return null;
-        //    }
-
-        //    var tenant = await _db.Tenants
-        //        .AsNoTracking()
-        //        .FirstOrDefaultAsync(
-        //            t => t.ApiKey == apiKey && t.ApiSecret == apiSecret,
-        //            cancellationToken);
-
-        //    if (tenant == null)
-        //    {
-        //        ModelState.AddModelError(nameof(order.Tenant), "Tenant with the provided api key and secret key was not found.");
-        //    }
-
-        //    return tenant;
-        //}
 
         private async Task<LocalUserDTO?> ResolveLocalUserAsync(OrderDTO order, Guid tenantId, CancellationToken cancellationToken)
         {

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -49,7 +50,7 @@ namespace OrderCloud.API.Controllers
                 Id = t.Id,
                 Name = t.Name,
                 ApiKey = t.ApiKey,
-                ApiSecret = t.ApiSecret,
+                ApiSecret = null,
                 ApplicationUserId = t.ApplicationUsers.Select(user => user.Id).FirstOrDefault() ?? t.ApplicationUserId,
                 ApplicationUserIds = t.ApplicationUsers.Select(user => user.Id).ToList()
             });
@@ -70,7 +71,7 @@ namespace OrderCloud.API.Controllers
                 Id = tenant.Id,
                 Name = tenant.Name,
                 ApiKey = tenant.ApiKey,
-                ApiSecret = tenant.ApiSecret,
+                ApiSecret = null,
                 ApplicationUserId = tenant.ApplicationUsers.Select(user => user.Id).FirstOrDefault() ?? tenant.ApplicationUserId,
                 ApplicationUserIds = tenant.ApplicationUsers.Select(user => user.Id).ToList()
             };
@@ -114,7 +115,7 @@ namespace OrderCloud.API.Controllers
                 Id = tenant.Id == Guid.Empty ? Guid.NewGuid() : tenant.Id,
                 Name = tenant.Name,
                 ApiKey = string.IsNullOrWhiteSpace(tenant.ApiKey)
-                ? GenerateBase64Url(24)
+                ? GenerateBase64Url(48)
                 : tenant.ApiKey,
                 ApiSecret = string.IsNullOrWhiteSpace(tenant.ApiSecret)
                 ? GenerateBase64Url(48)

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OrderCloud.Shared.Data;
@@ -151,6 +152,12 @@ namespace OrderCloud.API.Controllers
             }
 
             return NoContent();
+        }
+
+        private Guid? GetAuthenticatedTenantId()
+        {
+            var tenantIdClaim = User.FindFirst("TenantId")?.Value;
+            return Guid.TryParse(tenantIdClaim, out var tenantId) ? tenantId : null;
         }
     }
 }

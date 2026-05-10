@@ -5,12 +5,16 @@ using OrderCloud.Blazor.Components;
 using OrderCloud.Blazor.Components.Account;
 using OrderCloud.Shared.Data;
 using OrderCloud.Blazor.Services;
+using OrderCloud.API.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// Добавляем поддержку API контроллеров
+builder.Services.AddControllers();
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityUserAccessor>();
@@ -69,12 +73,25 @@ builder.Services.AddHttpClient<ICustomerService, CustomerService>(client =>
 
 builder.Services.AddScoped<ITenantSelectionService, TenantSelectionService>();
 
-builder.Services.AddAuthentication(options =>
-    {
-        options.DefaultScheme = IdentityConstants.ApplicationScheme;
-        options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
-    })
-    .AddIdentityCookies();
+// Настройка аутентификации с несколькими схемами
+var authBuilder = builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = IdentityConstants.ApplicationScheme;
+    options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+});
+
+authBuilder.AddIdentityCookies();
+authBuilder.AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
+    ApiKeyAuthenticationOptions.DefaultScheme,
+    options => { });
+
+builder.Services.AddAuthorization(options =>
+{
+    // Политика для внешних API клиентов (только API Key)
+    options.AddPolicy("ApiKeyOnly", policy =>
+        policy.RequireAuthenticatedUser()
+              .AddAuthenticationSchemes(ApiKeyAuthenticationOptions.DefaultScheme));
+});
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -104,6 +121,12 @@ else
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Регистрируем API контроллеры
+app.MapControllers();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

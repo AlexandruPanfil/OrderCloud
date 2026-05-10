@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -29,7 +30,6 @@ namespace OrderCloud.API.Controllers
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
-            // Hide the hashed pin code when returning to client
             foreach(var user in localUsers) 
             {
                 user.PinCode = ""; 
@@ -52,7 +52,6 @@ namespace OrderCloud.API.Controllers
                 return NotFound();
             }
 
-            // Hide the hashed pin code when returning to client
             localUser.PinCode = "";
 
             return Ok(localUser);
@@ -100,10 +99,9 @@ namespace OrderCloud.API.Controllers
                 return BadRequest();
             }
 
-            // For update, pin code might be empty if the client didn't change it
             if (string.IsNullOrWhiteSpace(localUser.PinCode))
             {
-                ModelState.Remove(nameof(localUser.PinCode)); // don't fail validation
+                ModelState.Remove(nameof(localUser.PinCode));
             }
 
             if (!await ValidateAsync(localUser, cancellationToken))
@@ -125,7 +123,7 @@ namespace OrderCloud.API.Controllers
                 existing.PinCode = HashPinCode(localUser.PinCode);
             }
 
-            existing.TenantId = localUser.TenantId;
+            // Не позволяем менять TenantId
             existing.DeviceId = localUser.DeviceId;
 
             try
@@ -145,7 +143,7 @@ namespace OrderCloud.API.Controllers
         [HttpDelete("{id:guid}")]
         public async Task<ActionResult> Delete(Guid id, CancellationToken cancellationToken = default)
         {
-            var existing = await _db.LocalUsers.FindAsync(new object[] { id }, cancellationToken);
+            var existing = await _db.LocalUsers.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
             if (existing == null)
             {
                 return NotFound();
@@ -172,6 +170,7 @@ namespace OrderCloud.API.Controllers
             return NoContent();
         }
 
+        [AllowAnonymous] // Публичный endpoint для Android приложения
         [HttpPost("verify-pin")]
         public async Task<ActionResult<bool>> VerifyPin([FromBody] VerifyPinRequest request, CancellationToken cancellationToken = default)
         {
@@ -194,6 +193,7 @@ namespace OrderCloud.API.Controllers
             return Ok(isValid);
         }
 
+        [AllowAnonymous] // Публичный endpoint для Android приложения
         [HttpPost("verify-pin-by-device")]
         public async Task<ActionResult<VerifyPinByDeviceResponse>> VerifyPinByDevice([FromBody] VerifyPinByDeviceRequest request, CancellationToken cancellationToken = default)
         {
@@ -232,6 +232,12 @@ namespace OrderCloud.API.Controllers
             {
                 IsValid = false
             });
+        }
+
+        private Guid? GetAuthenticatedTenantId()
+        {
+            var tenantIdClaim = User.FindFirst("TenantId")?.Value;
+            return Guid.TryParse(tenantIdClaim, out var tenantId) ? tenantId : null;
         }
 
         private static bool VerifyPinHash(string providedPin, string storedHash)
